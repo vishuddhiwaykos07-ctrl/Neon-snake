@@ -1,32 +1,170 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const BOARD_SIZE = 20
 
-const START_SNAKE = [
-  { x: 10, y: 10 },
-  { x: 9, y: 10 },
-  { x: 8, y: 10 },
-]
+const THEMES = {
+  neon: {
+    name: 'Neon',
+    icon: '💜',
+    className: 'theme-neon',
+  },
+  cyber: {
+    name: 'Cyber',
+    icon: '🔵',
+    className: 'theme-cyber',
+  },
+  matrix: {
+    name: 'Matrix',
+    icon: '🟢',
+    className: 'theme-matrix',
+  },
+  fire: {
+    name: 'Fire',
+    icon: '🔥',
+    className: 'theme-fire',
+  },
+  ice: {
+    name: 'Ice',
+    icon: '❄️',
+    className: 'theme-ice',
+  },
+}
 
 const FOOD_TYPES = {
-  normal: { symbol: '●', points: 10 },
-  bonus: { symbol: '◆', points: 25 },
-  golden: { symbol: '★', points: 50 },
+  normal: {
+    symbol: '●',
+    points: 10,
+    className: 'normal-food',
+  },
+  bonus: {
+    symbol: '◆',
+    points: 25,
+    className: 'bonus-food',
+  },
+  golden: {
+    symbol: '★',
+    points: 50,
+    className: 'golden-food',
+  },
 }
 
 const POWER_UPS = {
-  shield: { symbol: '🛡️', name: 'SHIELD', duration: 6000 },
-  slow: { symbol: '⏱️', name: 'SLOW', duration: 6000 },
-  multiplier: { symbol: '✕2', name: 'MULTIPLIER', duration: 6000 },
+  shield: {
+    symbol: '🛡️',
+    name: 'Shield',
+    duration: 6000,
+  },
+  slow: {
+    symbol: '⏱️',
+    name: 'Slow',
+    duration: 6000,
+  },
+  multiplier: {
+    symbol: '✕2',
+    name: '2X Score',
+    duration: 6000,
+  },
 }
 
-const getSavedData = (key, fallback) => {
+const MODES = {
+  classic: {
+    name: 'Classic',
+    icon: '🐍',
+    description: 'Classic Snake gameplay',
+  },
+  time: {
+    name: 'Time Attack',
+    icon: '⏱️',
+    description: 'Score as much as possible in 60 seconds',
+  },
+  endless: {
+    name: 'Endless',
+    icon: '♾️',
+    description: 'Keep going and chase your record',
+  },
+  challenge: {
+    name: 'Challenge',
+    icon: '💀',
+    description: 'Walls appear as your score increases',
+  },
+}
+
+const ACHIEVEMENT_LIST = [
+  {
+    id: 'first',
+    icon: '🎮',
+    title: 'First Game',
+    description: 'Complete your first game',
+  },
+  {
+    id: 'score50',
+    icon: '⭐',
+    title: 'Rising Star',
+    description: 'Reach 50 points',
+  },
+  {
+    id: 'score100',
+    icon: '💯',
+    title: 'Century',
+    description: 'Reach 100 points',
+  },
+  {
+    id: 'score250',
+    icon: '🔥',
+    title: 'On Fire',
+    description: 'Reach 250 points',
+  },
+  {
+    id: 'combo5',
+    icon: '⚡',
+    title: 'Combo Master',
+    description: 'Reach a 5x combo',
+  },
+  {
+    id: 'gold',
+    icon: '👑',
+    title: 'Golden Hunter',
+    description: 'Eat golden food',
+  },
+  {
+    id: 'power',
+    icon: '🛡️',
+    title: 'Powered Up',
+    description: 'Use a power-up',
+  },
+  {
+    id: 'long',
+    icon: '🐍',
+    title: 'Long Snake',
+    description: 'Reach a length of 15',
+  },
+]
+
+const DEFAULT_STATS = {
+  games: 0,
+  food: 0,
+  bestCombo: 0,
+  totalScore: 0,
+  goldenFood: 0,
+  powerUps: 0,
+  longestSnake: 3,
+}
+
+const getSaved = (key, fallback) => {
   try {
-    const saved = localStorage.getItem(key)
-    return saved !== null ? JSON.parse(saved) : fallback
+    const value = localStorage.getItem(key)
+    return value !== null ? JSON.parse(value) : fallback
   } catch {
     return fallback
+  }
+}
+
+const save = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Ignore storage errors
   }
 }
 
@@ -35,24 +173,22 @@ const randomPosition = () => ({
   y: Math.floor(Math.random() * BOARD_SIZE),
 })
 
-const createFood = (snake) => {
-  let position
+const isSamePosition = (a, b) => a.x === b.x && a.y === b.y
 
-  do {
+const createFood = (snake) => {
+  let position = randomPosition()
+
+  while (snake.some((segment) => isSamePosition(segment, position))) {
     position = randomPosition()
-  } while (
-    snake.some(
-      (segment) => segment.x === position.x && segment.y === position.y
-    )
-  )
+  }
 
   const random = Math.random()
 
   let type = 'normal'
 
-  if (random > 0.92) {
+  if (random > 0.94) {
     type = 'golden'
-  } else if (random > 0.75) {
+  } else if (random > 0.78) {
     type = 'bonus'
   }
 
@@ -63,30 +199,35 @@ const createFood = (snake) => {
 }
 
 const createPowerUp = (snake, food) => {
-  if (Math.random() > 0.25) return null
+  if (Math.random() > 0.08) return null
 
-  let position
+  let position = randomPosition()
 
-  do {
+  while (
+    snake.some((segment) => isSamePosition(segment, position)) ||
+    isSamePosition(food, position)
+  ) {
     position = randomPosition()
-  } while (
-    snake.some(
-      (segment) => segment.x === position.x && segment.y === position.y
-    ) ||
-    (food.x === position.x && food.y === position.y)
-  )
+  }
 
   const types = Object.keys(POWER_UPS)
+  const type = types[Math.floor(Math.random() * types.length)]
 
   return {
     ...position,
-    type: types[Math.floor(Math.random() * types.length)],
+    type,
   }
 }
 
+const getInitialSnake = () => [
+  { x: 10, y: 10 },
+  { x: 9, y: 10 },
+  { x: 8, y: 10 },
+]
+
 function App() {
-  const [snake, setSnake] = useState(START_SNAKE)
-  const [food, setFood] = useState(() => createFood(START_SNAKE))
+  const [snake, setSnake] = useState(getInitialSnake)
+  const [food, setFood] = useState(() => createFood(getInitialSnake()))
   const [powerUp, setPowerUp] = useState(null)
 
   const [direction, setDirection] = useState({ x: 1, y: 0 })
@@ -98,66 +239,98 @@ function App() {
 
   const [score, setScore] = useState(0)
   const [highScore, setHighScore] = useState(() =>
-    getSavedData('neonSnakeHighScore', 0)
+    getSaved('neon-high-score', 0)
   )
 
   const [level, setLevel] = useState(1)
   const [combo, setCombo] = useState(0)
+  const [bestCombo, setBestCombo] = useState(() =>
+    getSaved('neon-best-combo', 0)
+  )
+
+  const [soundOn, setSoundOn] = useState(() =>
+    getSaved('neon-sound', true)
+  )
+
+  const [theme, setTheme] = useState(() =>
+    getSaved('neon-theme', 'neon')
+  )
+
+  const [mode, setMode] = useState(() =>
+    getSaved('neon-mode', 'classic')
+  )
+
+  const [playerName, setPlayerName] = useState(() =>
+    getSaved('neon-player', 'Nova')
+  )
+
+  const [stats, setStats] = useState(() =>
+    getSaved('neon-stats', DEFAULT_STATS)
+  )
+
+  const [achievements, setAchievements] = useState(() =>
+    getSaved('neon-achievements', [])
+  )
+
+  const [leaderboard, setLeaderboard] = useState(() =>
+    getSaved('neon-leaderboard', [])
+  )
 
   const [activePowerUp, setActivePowerUp] = useState(null)
   const [powerUpTime, setPowerUpTime] = useState(0)
 
-  const [soundOn, setSoundOn] = useState(() =>
-    getSavedData('neonSnakeSound', true)
-  )
+  const [timeLeft, setTimeLeft] = useState(60)
 
-  const [gamesPlayed, setGamesPlayed] = useState(() =>
-    getSavedData('neonSnakeGames', 0)
-  )
+  const [message, setMessage] = useState('Ready?')
+  const [screen, setScreen] = useState('game')
 
-  const [totalFood, setTotalFood] = useState(() =>
-    getSavedData('neonSnakeFood', 0)
-  )
+  const [walls, setWalls] = useState([])
 
-  const [bestCombo, setBestCombo] = useState(() =>
-    getSavedData('neonSnakeBestCombo', 0)
-  )
-
-  const [achievements, setAchievements] = useState(() =>
-    getSavedData('neonSnakeAchievements', [])
-  )
-
-  const [message, setMessage] = useState('')
-
+  const touchStart = useRef(null)
   const audioContext = useRef(null)
 
-  const playSound = (type) => {
+  const currentTheme = THEMES[theme] || THEMES.neon
+
+  const speed = useMemo(() => {
+    let base = Math.max(70, 170 - (level - 1) * 12)
+
+    if (activePowerUp === 'slow') {
+      base += 100
+    }
+
+    if (mode === 'challenge') {
+      base = Math.max(55, base - 10)
+    }
+
+    return base
+  }, [level, activePowerUp, mode])
+
+  const playSound = (frequency = 500, duration = 0.07) => {
     if (!soundOn) return
 
     try {
+      const AudioContext =
+        window.AudioContext || window.webkitAudioContext
+
+      if (!AudioContext) return
+
       if (!audioContext.current) {
-        audioContext.current = new (
-          window.AudioContext || window.webkitAudioContext
-        )()
+        audioContext.current = new AudioContext()
       }
 
       const ctx = audioContext.current
+
+      if (ctx.state === 'suspended') {
+        ctx.resume()
+      }
+
       const oscillator = ctx.createOscillator()
       const gain = ctx.createGain()
 
-      const sounds = {
-        eat: [520, 0.08],
-        power: [780, 0.16],
-        level: [980, 0.2],
-        gameover: [160, 0.3],
-      }
-
-      const [frequency, duration] = sounds[type] || [440, 0.1]
-
       oscillator.frequency.value = frequency
-      oscillator.type = 'square'
+      oscillator.type = 'sine'
 
-      gain.gain.setValueAtTime(0.05, ctx.currentTime)
+      gain.gain.setValueAtTime(0.08, ctx.currentTime)
       gain.gain.exponentialRampToValueAtTime(
         0.001,
         ctx.currentTime + duration
@@ -169,83 +342,94 @@ function App() {
       oscillator.start()
       oscillator.stop(ctx.currentTime + duration)
     } catch {
-      // Sound is optional.
+      // Sound is optional
     }
   }
 
   const showMessage = (text) => {
     setMessage(text)
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setMessage('')
-    }, 1200)
+    }, 1000)
   }
 
-  const unlockAchievement = (id, text) => {
+  const unlockAchievement = (id) => {
     setAchievements((current) => {
       if (current.includes(id)) return current
 
-      showMessage(`🏆 ${text}`)
-      return [...current, id]
+      const updated = [...current, id]
+      const achievement = ACHIEVEMENT_LIST.find(
+        (item) => item.id === id
+      )
+
+      if (achievement) {
+        showMessage(`${achievement.icon} ${achievement.title}!`)
+        playSound(850, 0.12)
+      }
+
+      return updated
     })
   }
 
-  useEffect(() => {
-    localStorage.setItem('neonSnakeHighScore', JSON.stringify(highScore))
-  }, [highScore])
+  const generateWalls = () => {
+    const newWalls = []
 
-  useEffect(() => {
-    localStorage.setItem('neonSnakeSound', JSON.stringify(soundOn))
-  }, [soundOn])
+    const amount = Math.min(12, Math.floor(score / 75))
 
-  useEffect(() => {
-    localStorage.setItem('neonSnakeGames', JSON.stringify(gamesPlayed))
-  }, [gamesPlayed])
+    for (let i = 0; i < amount; i++) {
+      let position = randomPosition()
 
-  useEffect(() => {
-    localStorage.setItem('neonSnakeFood', JSON.stringify(totalFood))
-  }, [totalFood])
+      let attempts = 0
 
-  useEffect(() => {
-    localStorage.setItem('neonSnakeBestCombo', JSON.stringify(bestCombo))
-  }, [bestCombo])
-
-  useEffect(() => {
-    localStorage.setItem(
-      'neonSnakeAchievements',
-      JSON.stringify(achievements)
-    )
-  }, [achievements])
-
-  useEffect(() => {
-    if (!activePowerUp) return
-
-    const started = Date.now()
-
-    const timer = setInterval(() => {
-      const remaining =
-        POWER_UPS[activePowerUp].duration - (Date.now() - started)
-
-      if (remaining <= 0) {
-        setActivePowerUp(null)
-        setPowerUpTime(0)
-      } else {
-        setPowerUpTime(remaining)
+      while (
+        (
+          snake.some((segment) =>
+            isSamePosition(segment, position)
+          ) ||
+          isSamePosition(food, position) ||
+          newWalls.some((wall) =>
+            isSamePosition(wall, position)
+          )
+        ) &&
+        attempts < 100
+      ) {
+        position = randomPosition()
+        attempts++
       }
-    }, 100)
 
-    return () => clearInterval(timer)
-  }, [activePowerUp])
+      newWalls.push(position)
+    }
+
+    setWalls(newWalls)
+  }
+
+  const changeDirection = (newDirection) => {
+    const current = nextDirection.current
+
+    if (
+      newDirection.x === -current.x &&
+      newDirection.y === -current.y
+    ) {
+      return
+    }
+
+    nextDirection.current = newDirection
+  }
 
   const resetGame = () => {
-    const newSnake = [...START_SNAKE]
+    const newSnake = getInitialSnake()
 
     setSnake(newSnake)
     setFood(createFood(newSnake))
     setPowerUp(null)
 
-    setDirection({ x: 1, y: 0 })
     nextDirection.current = { x: 1, y: 0 }
+    setDirection({ x: 1, y: 0 })
+
+    setGameStarted(false)
+    setPaused(false)
+    setGameOver(false)
 
     setScore(0)
     setLevel(1)
@@ -254,57 +438,417 @@ function App() {
     setActivePowerUp(null)
     setPowerUpTime(0)
 
-    setGameOver(false)
-    setPaused(false)
-    setGameStarted(true)
+    setTimeLeft(60)
+
+    setWalls([])
+
+    setMessage('Ready?')
   }
 
   const startGame = () => {
-    resetGame()
-  }
-
-  const changeDirection = (newDirection) => {
-    const current = nextDirection.current
-
-    if (
-      current.x + newDirection.x === 0 &&
-      current.y + newDirection.y === 0
-    ) {
-      return
+    if (gameOver) {
+      resetGame()
     }
 
-    nextDirection.current = newDirection
+    setGameStarted(true)
+    setPaused(false)
+    setGameOver(false)
+
+    setMessage('GO!')
+
+    playSound(700, 0.1)
   }
+
+  const finishGame = () => {
+    if (!gameStarted || gameOver) return
+
+    setGameOver(true)
+    setGameStarted(false)
+    setPaused(false)
+
+    playSound(180, 0.2)
+
+    setStats((current) => {
+      const updated = {
+        ...current,
+        games: current.games + 1,
+        totalScore: current.totalScore + score,
+        bestCombo: Math.max(current.bestCombo, combo),
+        longestSnake: Math.max(
+          current.longestSnake,
+          snake.length
+        ),
+      }
+
+      save('neon-stats', updated)
+
+      return updated
+    })
+
+    if (score > highScore) {
+      setHighScore(score)
+      save('neon-high-score', score)
+    }
+
+    const newEntry = {
+      name: playerName || 'Player',
+      score,
+      mode,
+      date: new Date().toLocaleDateString(),
+    }
+
+    setLeaderboard((current) => {
+      const updated = [...current, newEntry]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+
+      save('neon-leaderboard', updated)
+
+      return updated
+    })
+
+    unlockAchievement('first')
+
+    if (score >= 50) unlockAchievement('score50')
+    if (score >= 100) unlockAchievement('score100')
+    if (score >= 250) unlockAchievement('score250')
+    if (combo >= 5) unlockAchievement('combo5')
+    if (snake.length >= 15) unlockAchievement('long')
+  }
+
+  const eatFood = () => {
+    const foodData = FOOD_TYPES[food.type]
+
+    let points = foodData.points
+
+    if (activePowerUp === 'multiplier') {
+      points *= 2
+    }
+
+    const comboBonus = Math.max(0, combo * 2)
+
+    points += comboBonus
+
+    setScore((current) => {
+      const updated = current + points
+
+      const newLevel =
+        updated >= 200
+          ? 4
+          : updated >= 100
+            ? 3
+            : updated >= 50
+              ? 2
+              : 1
+
+      if (newLevel !== level) {
+        setLevel(newLevel)
+        showMessage(`LEVEL ${newLevel}!`)
+        playSound(950, 0.12)
+      }
+
+      if (updated > highScore) {
+        setHighScore(updated)
+        save('neon-high-score', updated)
+      }
+
+      return updated
+    })
+
+    const newCombo = combo + 1
+
+    setCombo(newCombo)
+    setBestCombo((current) => {
+      const updated = Math.max(current, newCombo)
+      save('neon-best-combo', updated)
+      return updated
+    })
+
+    setStats((current) => {
+      const updated = {
+        ...current,
+        food: current.food + 1,
+        bestCombo: Math.max(current.bestCombo, newCombo),
+        goldenFood:
+          current.goldenFood +
+          (food.type === 'golden' ? 1 : 0),
+        longestSnake: Math.max(
+          current.longestSnake,
+          snake.length + 1
+        ),
+      }
+
+      save('neon-stats', updated)
+
+      return updated
+    })
+
+    if (food.type === 'golden') {
+      unlockAchievement('gold')
+      playSound(1100, 0.14)
+      showMessage('👑 GOLDEN +50!')
+    } else if (food.type === 'bonus') {
+      playSound(800, 0.1)
+      showMessage(`◆ +${points}`)
+    } else {
+      playSound(600, 0.07)
+    }
+
+    const newFood = createFood(snake)
+    setFood(newFood)
+
+    const newPowerUp = createPowerUp(snake, newFood)
+
+    if (newPowerUp) {
+      setPowerUp(newPowerUp)
+    }
+  }
+
+  const collectPowerUp = () => {
+    if (!powerUp) return
+
+    const data = POWER_UPS[powerUp.type]
+
+    setActivePowerUp(powerUp.type)
+    setPowerUpTime(data.duration)
+
+    setStats((current) => {
+      const updated = {
+        ...current,
+        powerUps: current.powerUps + 1,
+      }
+
+      save('neon-stats', updated)
+
+      return updated
+    })
+
+    unlockAchievement('power')
+
+    showMessage(`${data.symbol} ${data.name}!`)
+    playSound(1000, 0.14)
+
+    setPowerUp(null)
+  }
+
+  useEffect(() => {
+    save('neon-sound', soundOn)
+  }, [soundOn])
+
+  useEffect(() => {
+    save('neon-theme', theme)
+  }, [theme])
+
+  useEffect(() => {
+    save('neon-mode', mode)
+  }, [mode])
+
+  useEffect(() => {
+    save('neon-player', playerName)
+  }, [playerName])
+
+  useEffect(() => {
+    if (!gameStarted || paused || gameOver) return
+
+    const timer = window.setInterval(() => {
+      setSnake((currentSnake) => {
+        const move = nextDirection.current
+
+        setDirection(move)
+
+        const head = currentSnake[0]
+
+        const newHead = {
+          x: head.x + move.x,
+          y: head.y + move.y,
+        }
+
+        let hitWall =
+          newHead.x < 0 ||
+          newHead.x >= BOARD_SIZE ||
+          newHead.y < 0 ||
+          newHead.y >= BOARD_SIZE
+
+        const hitChallengeWall = walls.some((wall) =>
+          isSamePosition(wall, newHead)
+        )
+
+        if (hitChallengeWall) {
+          hitWall = true
+        }
+
+        if (hitWall) {
+          if (activePowerUp === 'shield') {
+            newHead.x =
+              (newHead.x + BOARD_SIZE) % BOARD_SIZE
+            newHead.y =
+              (newHead.y + BOARD_SIZE) % BOARD_SIZE
+
+            setActivePowerUp(null)
+            setPowerUpTime(0)
+
+            showMessage('🛡️ SHIELD SAVED YOU!')
+            playSound(900, 0.1)
+          } else if (mode === 'endless') {
+            newHead.x =
+              (newHead.x + BOARD_SIZE) % BOARD_SIZE
+            newHead.y =
+              (newHead.y + BOARD_SIZE) % BOARD_SIZE
+          } else {
+            finishGame()
+            return currentSnake
+          }
+        }
+
+        const willEat = isSamePosition(newHead, food)
+
+        const bodyToCheck = willEat
+          ? currentSnake
+          : currentSnake.slice(0, -1)
+
+        const hitSelf = bodyToCheck.some((segment) =>
+          isSamePosition(segment, newHead)
+        )
+
+        if (hitSelf) {
+          if (activePowerUp === 'shield') {
+            setActivePowerUp(null)
+            setPowerUpTime(0)
+
+            showMessage('🛡️ SHIELD BROKE!')
+            playSound(400, 0.1)
+          } else {
+            finishGame()
+            return currentSnake
+          }
+        }
+
+        const hitPowerUp =
+          powerUp && isSamePosition(newHead, powerUp)
+
+        if (hitPowerUp) {
+          collectPowerUp()
+        }
+
+        let nextSnake = [newHead, ...currentSnake]
+
+        if (willEat) {
+          eatFood()
+        } else {
+          nextSnake.pop()
+          setCombo((current) =>
+            Math.max(0, current - 1)
+          )
+        }
+
+        return nextSnake
+      })
+    }, speed)
+
+    return () => window.clearInterval(timer)
+  }, [
+    gameStarted,
+    paused,
+    gameOver,
+    speed,
+    food,
+    powerUp,
+    activePowerUp,
+    mode,
+    walls,
+  ])
+
+  useEffect(() => {
+    if (!activePowerUp) return
+
+    const interval = window.setInterval(() => {
+      setPowerUpTime((current) => {
+        if (current <= 100) {
+          setActivePowerUp(null)
+          return 0
+        }
+
+        return current - 100
+      })
+    }, 100)
+
+    return () => window.clearInterval(interval)
+  }, [activePowerUp])
+
+  useEffect(() => {
+    if (
+      mode === 'time' &&
+      gameStarted &&
+      !paused &&
+      !gameOver
+    ) {
+      const timer = window.setInterval(() => {
+        setTimeLeft((current) => {
+          if (current <= 1) {
+            finishGame()
+            return 0
+          }
+
+          return current - 1
+        })
+      }, 1000)
+
+      return () => window.clearInterval(timer)
+    }
+  }, [mode, gameStarted, paused, gameOver])
+
+  useEffect(() => {
+    if (
+      mode === 'challenge' &&
+      gameStarted &&
+      score > 0 &&
+      score % 75 === 0
+    ) {
+      generateWalls()
+    }
+  }, [score, mode, gameStarted])
 
   useEffect(() => {
     const handleKeyDown = (event) => {
       const key = event.key.toLowerCase()
 
-      if (key === 'arrowup' || key === 'w') {
+      if (
+        [
+          'arrowup',
+          'arrowdown',
+          'arrowleft',
+          'arrowright',
+          'w',
+          'a',
+          's',
+          'd',
+          ' ',
+        ].includes(key)
+      ) {
         event.preventDefault()
+      }
+
+      if (key === 'arrowup' || key === 'w') {
         changeDirection({ x: 0, y: -1 })
       }
 
       if (key === 'arrowdown' || key === 's') {
-        event.preventDefault()
         changeDirection({ x: 0, y: 1 })
       }
 
       if (key === 'arrowleft' || key === 'a') {
-        event.preventDefault()
         changeDirection({ x: -1, y: 0 })
       }
 
       if (key === 'arrowright' || key === 'd') {
-        event.preventDefault()
         changeDirection({ x: 1, y: 0 })
       }
 
       if (key === ' ') {
-        event.preventDefault()
-
-        if (gameStarted && !gameOver) {
-          setPaused((value) => !value)
+        if (!gameStarted && !gameOver) {
+          startGame()
+        } else if (gameStarted) {
+          setPaused((current) => !current)
         }
       }
 
@@ -315,607 +859,799 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
 
-    return () => {
+    return () =>
       window.removeEventListener('keydown', handleKeyDown)
-    }
   }, [gameStarted, gameOver])
 
-  useEffect(() => {
-    if (!gameStarted || paused || gameOver) return
+  const handleTouchStart = (event) => {
+    const touch = event.touches[0]
 
-    const baseSpeed = Math.max(75, 170 - (level - 1) * 10)
-    const speed = activePowerUp === 'slow' ? baseSpeed * 1.65 : baseSpeed
+    touchStart.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    }
+  }
 
-    const timer = setInterval(() => {
-      setSnake((currentSnake) => {
-        const move = nextDirection.current
+  const handleTouchEnd = (event) => {
+    if (!touchStart.current) return
 
-        setDirection(move)
+    const touch = event.changedTouches[0]
 
-        const head = currentSnake[0]
+    const dx =
+      touch.clientX - touchStart.current.x
 
-        let newHead = {
-          x: head.x + move.x,
-          y: head.y + move.y,
-        }
+    const dy =
+      touch.clientY - touchStart.current.y
 
-        const hitWall =
-          newHead.x < 0 ||
-          newHead.x >= BOARD_SIZE ||
-          newHead.y < 0 ||
-          newHead.y >= BOARD_SIZE
+    touchStart.current = null
 
-        if (hitWall) {
-          if (activePowerUp === 'shield') {
-            setActivePowerUp(null)
-            setPowerUpTime(0)
-            showMessage('🛡️ SHIELD SAVED YOU!')
+    const minimumDistance = 25
 
-            newHead = {
-              x: (newHead.x + BOARD_SIZE) % BOARD_SIZE,
-              y: (newHead.y + BOARD_SIZE) % BOARD_SIZE,
-            }
-          } else {
-            setGameOver(true)
-            setGamesPlayed((value) => value + 1)
-            playSound('gameover')
-            return currentSnake
-          }
-        }
+    if (
+      Math.abs(dx) < minimumDistance &&
+      Math.abs(dy) < minimumDistance
+    ) {
+      return
+    }
 
-        const ateFood =
-          newHead.x === food.x && newHead.y === food.y
-
-        const collectedPowerUp =
-          powerUp &&
-          newHead.x === powerUp.x &&
-          newHead.y === powerUp.y
-
-        const bodyToCheck = ateFood
-          ? currentSnake
-          : currentSnake.slice(0, -1)
-
-        const hitSelf = bodyToCheck.some(
-          (segment) =>
-            segment.x === newHead.x && segment.y === newHead.y
-        )
-
-        if (hitSelf) {
-          if (activePowerUp === 'shield') {
-            setActivePowerUp(null)
-            setPowerUpTime(0)
-            showMessage('🛡️ SHIELD SAVED YOU!')
-            return currentSnake
-          }
-
-          setGameOver(true)
-          setGamesPlayed((value) => value + 1)
-          playSound('gameover')
-          return currentSnake
-        }
-
-        const newSnake = [newHead, ...currentSnake]
-
-        if (collectedPowerUp) {
-          const power = powerUp.type
-
-          setActivePowerUp(power)
-          setPowerUpTime(POWER_UPS[power].duration)
-          setPowerUp(null)
-
-          showMessage(
-            `${POWER_UPS[power].symbol} ${POWER_UPS[power].name}!`
-          )
-
-          playSound('power')
-        }
-
-        if (ateFood) {
-          const foodData = FOOD_TYPES[food.type]
-
-          let earned = foodData.points
-
-          const newCombo = combo + 1
-
-          if (newCombo >= 3) {
-            earned += newCombo * 2
-          }
-
-          if (activePowerUp === 'multiplier') {
-            earned *= 2
-          }
-
-          const newScore = score + earned
-
-          setScore(newScore)
-          setTotalFood((value) => value + 1)
-          setCombo(newCombo)
-
-          if (newCombo > bestCombo) {
-            setBestCombo(newCombo)
-          }
-
-          if (newScore > highScore) {
-            setHighScore(newScore)
-          }
-
-          if (newScore >= 50 && level === 1) {
-            setLevel(2)
-            playSound('level')
-            showMessage('⚡ LEVEL 2!')
-          }
-
-          if (newScore >= 100 && level === 2) {
-            setLevel(3)
-            playSound('level')
-            showMessage('🔥 LEVEL 3!')
-          }
-
-          if (newScore >= 200 && level === 3) {
-            setLevel(4)
-            playSound('level')
-            showMessage('💥 LEVEL 4!')
-          }
-
-          if (newScore >= 500) {
-            unlockAchievement('score500', '500 POINTS!')
-          }
-
-          if (newCombo >= 5) {
-            unlockAchievement('combo5', 'COMBO MASTER!')
-          }
-
-          if (food.type === 'golden') {
-            unlockAchievement('golden', 'GOLDEN CATCH!')
-          }
-
-          playSound('eat')
-
-          if (newCombo >= 3) {
-            showMessage(`🔥 COMBO x${newCombo} +${earned}`)
-          }
-
-          setFood(createFood(newSnake))
-
-          if (!powerUp) {
-            const newPower = createPowerUp(newSnake, food)
-
-            if (newPower) {
-              setPowerUp(newPower)
-            }
-          }
-
-          return newSnake
-        }
-
-        setCombo(0)
-
-        return newSnake.slice(0, -1)
+    if (Math.abs(dx) > Math.abs(dy)) {
+      changeDirection({
+        x: dx > 0 ? 1 : -1,
+        y: 0,
       })
-    }, speed)
-
-    return () => clearInterval(timer)
-  }, [
-    gameStarted,
-    paused,
-    gameOver,
-    level,
-    food,
-    powerUp,
-    activePowerUp,
-    score,
-    combo,
-    highScore,
-    bestCombo,
-  ])
-
-  useEffect(() => {
-    if (score >= 100) {
-      unlockAchievement('score100', 'CENTURY!')
+    } else {
+      changeDirection({
+        x: 0,
+        y: dy > 0 ? 1 : -1,
+      })
     }
-
-    if (score >= 250) {
-      unlockAchievement('score250', 'NEON LEGEND!')
-    }
-
-    if (gamesPlayed >= 5) {
-      unlockAchievement('games5', 'VETERAN PLAYER!')
-    }
-
-    if (totalFood >= 50) {
-      unlockAchievement('food50', 'FOOD HUNTER!')
-    }
-  }, [score, gamesPlayed, totalFood])
-
-  const getCellClass = (x, y) => {
-    const snakeIndex = snake.findIndex(
-      (segment) => segment.x === x && segment.y === y
-    )
-
-    if (snakeIndex === 0) return 'cell snake-head'
-    if (snakeIndex > 0) return 'cell snake-body'
-
-    if (food.x === x && food.y === y) {
-      return `cell food ${food.type}`
-    }
-
-    if (powerUp && powerUp.x === x && powerUp.y === y) {
-      return `cell power-up ${powerUp.type}`
-    }
-
-    return 'cell'
   }
 
   const touchDirection = (event, move) => {
     event.preventDefault()
     event.stopPropagation()
 
-    if (!gameStarted) {
-      startGame()
-      return
-    }
-
-    if (gameOver) {
-      resetGame()
-      return
-    }
-
     changeDirection(move)
   }
 
-  const achievementList = [
-    ['score100', '💯 Century', 'Reach 100 points'],
-    ['score250', '👑 Neon Legend', 'Reach 250 points'],
-    ['score500', '🏆 500 Club', 'Reach 500 points'],
-    ['combo5', '🔥 Combo Master', 'Reach a x5 combo'],
-    ['golden', '⭐ Golden Catch', 'Eat golden food'],
-    ['games5', '🎮 Veteran', 'Play 5 games'],
-    ['food50', '🍎 Food Hunter', 'Eat 50 food items'],
-  ]
+  const cells = []
+
+  for (let y = 0; y < BOARD_SIZE; y++) {
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      cells.push({ x, y })
+    }
+  }
 
   return (
-    <div className="app">
-      <div className="background-grid" />
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
-
-      <header className="header">
+    <div
+      className={`app ${currentTheme.className}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <header className="topbar">
         <div>
-          <div className="eyebrow">
-            NEON ARCADE // SYSTEM ONLINE
-          </div>
-
-          <h1>
-            NEON <span>SNAKE</span>
-          </h1>
-        </div>
-
-        <button
-          type="button"
-          className="sound-button"
-          onClick={() => setSoundOn((value) => !value)}
-        >
-          {soundOn ? '🔊 SOUND' : '🔇 MUTED'}
-        </button>
-      </header>
-
-      <main className="game-wrapper">
-        <section className="dashboard">
-          <div className="score-card">
-            <span>SCORE</span>
-            <strong>{score.toString().padStart(4, '0')}</strong>
-          </div>
-
-          <div className="score-card">
-            <span>BEST</span>
-            <strong>{highScore.toString().padStart(4, '0')}</strong>
-          </div>
-
-          <div className="score-card">
-            <span>LEVEL</span>
-            <strong>{level}</strong>
-          </div>
-
-          <div className="score-card">
-            <span>COMBO</span>
-            <strong>x{combo}</strong>
-          </div>
-        </section>
-
-        {activePowerUp && (
-          <div className={`power-status ${activePowerUp}`}>
-            <span>
-              {POWER_UPS[activePowerUp].symbol}{' '}
-              {POWER_UPS[activePowerUp].name}
-            </span>
-
-            <div className="power-progress">
-              <div
-                style={{
-                  width: `${
-                    (powerUpTime /
-                      POWER_UPS[activePowerUp].duration) *
-                    100
-                  }%`,
-                }}
-              />
+          <div className="logo">
+            <span>🐍</span>
+            <div>
+              <h1>NEON SNAKE</h1>
+              <p>ULTIMATE EDITION</p>
             </div>
           </div>
-        )}
+        </div>
 
-        <div className="game-area">
-          <div className="board-frame">
-            <div className="board">
-              {Array.from({
-                length: BOARD_SIZE * BOARD_SIZE,
-              }).map((_, index) => {
-                const x = index % BOARD_SIZE
-                const y = Math.floor(index / BOARD_SIZE)
+        <div className="top-actions">
+          <button
+            className="icon-button"
+            onClick={() => setSoundOn((current) => !current)}
+          >
+            {soundOn ? '🔊' : '🔇'}
+          </button>
 
-                return (
-                  <div
-                    key={index}
-                    className={getCellClass(x, y)}
-                  >
-                    {snake[0]?.x === x &&
-                      snake[0]?.y === y && (
-                        <span className="eye">◆</span>
-                      )}
+          <button
+            className="icon-button"
+            onClick={() => setScreen('settings')}
+          >
+            ⚙️
+          </button>
+        </div>
+      </header>
 
-                    {food.x === x &&
-                      food.y === y && (
-                        <span className="food-symbol">
-                          {FOOD_TYPES[food.type].symbol}
-                        </span>
-                      )}
+      <main className="main-content">
+        {screen === 'game' && (
+          <>
+            <section className="game-layout">
+              <aside className="side-panel">
+                <div className="profile-card">
+                  <div className="avatar">🎮</div>
 
-                    {powerUp &&
-                      powerUp.x === x &&
-                      powerUp.y === y && (
-                        <span className="power-symbol">
-                          {POWER_UPS[powerUp.type].symbol}
-                        </span>
-                      )}
-                  </div>
-                )
-              })}
+                  <div>
+                    <small>PLAYER</small>
 
-              {!gameStarted && (
-                <div className="overlay">
-                  <div className="overlay-content">
-                    <div className="big-icon">🐍</div>
-
-                    <h2>NEON SNAKE</h2>
-
-                    <p>ENTER THE GRID</p>
-
-                    <button
-                      type="button"
-                      className="primary-button"
-                      onClick={startGame}
-                    >
-                      START GAME
-                    </button>
+                    <input
+                      value={playerName}
+                      onChange={(event) =>
+                        setPlayerName(event.target.value)
+                      }
+                      maxLength={16}
+                      aria-label="Player name"
+                    />
                   </div>
                 </div>
-              )}
 
-              {paused && !gameOver && (
-                <div className="overlay">
-                  <div className="overlay-content">
-                    <div className="big-icon">⏸️</div>
+                <div className="stat-grid">
+                  <div className="stat-card">
+                    <span>🏆</span>
+                    <small>HIGH SCORE</small>
+                    <strong>{highScore}</strong>
+                  </div>
 
-                    <h2>PAUSED</h2>
+                  <div className="stat-card">
+                    <span>⭐</span>
+                    <small>SCORE</small>
+                    <strong>{score}</strong>
+                  </div>
 
-                    <p>PRESS SPACE TO CONTINUE</p>
+                  <div className="stat-card">
+                    <span>⚡</span>
+                    <small>COMBO</small>
+                    <strong>x{combo}</strong>
+                  </div>
 
-                    <button
-                      type="button"
-                      className="primary-button"
-                      onClick={() => setPaused(false)}
-                    >
-                      RESUME
-                    </button>
+                  <div className="stat-card">
+                    <span>🚀</span>
+                    <small>LEVEL</small>
+                    <strong>{level}</strong>
                   </div>
                 </div>
-              )}
 
-              {gameOver && (
-                <div className="overlay">
-                  <div className="overlay-content">
-                    <div className="big-icon">💥</div>
+                <div className="mode-card">
+                  <div className="section-title">
+                    <span>🎮 GAME MODE</span>
+                  </div>
 
-                    <h2>GAME OVER</h2>
+                  <div className="mode-list">
+                    {Object.entries(MODES).map(
+                      ([key, item]) => (
+                        <button
+                          key={key}
+                          className={
+                            mode === key
+                              ? 'mode-button active'
+                              : 'mode-button'
+                          }
+                          onClick={() => {
+                            if (!gameStarted) {
+                              setMode(key)
+                              resetGame()
+                            }
+                          }}
+                        >
+                          <span>{item.icon}</span>
+                          <div>
+                            <strong>{item.name}</strong>
+                            <small>{item.description}</small>
+                          </div>
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              </aside>
 
-                    <p>FINAL SCORE</p>
+              <section className="game-center">
+                <div className="game-header">
+                  <div>
+                    <span className="mode-label">
+                      {MODES[mode].icon} {MODES[mode].name}
+                    </span>
 
-                    <div className="final-score">
-                      {score}
-                    </div>
+                    <h2>
+                      {mode === 'time'
+                        ? `${timeLeft}s remaining`
+                        : message || 'Keep going!'}
+                    </h2>
+                  </div>
 
-                    {score >= highScore && score > 0 && (
-                      <div className="record">
-                        NEW HIGH SCORE!
+                  <div className="level-pill">
+                    LVL {level}
+                  </div>
+                </div>
+
+                <div
+                  className="board-wrapper"
+                  onTouchStart={(event) => {
+                    event.stopPropagation()
+                    handleTouchStart(event)
+                  }}
+                  onTouchEnd={(event) => {
+                    event.stopPropagation()
+                    handleTouchEnd(event)
+                  }}
+                >
+                  <div className="board">
+                    {cells.map((cell) => {
+                      const snakeIndex =
+                        snake.findIndex((segment) =>
+                          isSamePosition(segment, cell)
+                        )
+
+                      const isHead = snakeIndex === 0
+
+                      const isFood =
+                        isSamePosition(food, cell)
+
+                      const isPowerUp =
+                        powerUp &&
+                        isSamePosition(powerUp, cell)
+
+                      const isWall =
+                        walls.some((wall) =>
+                          isSamePosition(wall, cell)
+                        )
+
+                      let className = 'cell'
+
+                      if (snakeIndex !== -1) {
+                        className += ' snake-cell'
+
+                        if (isHead) {
+                          className += ' snake-head'
+                        }
+                      }
+
+                      if (isFood) {
+                        className += ` food-cell ${
+                          FOOD_TYPES[food.type].className
+                        }`
+                      }
+
+                      if (isPowerUp) {
+                        className += ' power-cell'
+                      }
+
+                      if (isWall) {
+                        className += ' wall-cell'
+                      }
+
+                      return (
+                        <div
+                          key={`${cell.x}-${cell.y}`}
+                          className={className}
+                        >
+                          {isHead && '◆'}
+
+                          {isFood &&
+                            FOOD_TYPES[food.type].symbol}
+
+                          {isPowerUp &&
+                            POWER_UPS[powerUp.type].symbol}
+
+                          {isWall && '▰'}
+                        </div>
+                      )
+                    })}
+
+                    {!gameStarted && !gameOver && (
+                      <div className="overlay">
+                        <div className="overlay-card">
+                          <div className="big-icon">🐍</div>
+
+                          <h2>NEON SNAKE</h2>
+
+                          <p>
+                            Eat. Grow. Survive. Break the
+                            record.
+                          </p>
+
+                          <button
+                            className="primary-button"
+                            onClick={startGame}
+                          >
+                            ▶ START GAME
+                          </button>
+
+                          <small>
+                            Arrow Keys / WASD / Swipe
+                          </small>
+                        </div>
                       </div>
                     )}
 
+                    {paused && (
+                      <div className="overlay">
+                        <div className="overlay-card">
+                          <div className="big-icon">⏸️</div>
+
+                          <h2>PAUSED</h2>
+
+                          <p>Your snake is waiting.</p>
+
+                          <button
+                            className="primary-button"
+                            onClick={() =>
+                              setPaused(false)
+                            }
+                          >
+                            ▶ RESUME
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {gameOver && (
+                      <div className="overlay">
+                        <div className="overlay-card">
+                          <div className="big-icon">💥</div>
+
+                          <h2>GAME OVER</h2>
+
+                          <p>
+                            Final Score
+                          </p>
+
+                          <div className="final-score">
+                            {score}
+                          </div>
+
+                          {score >= highScore && (
+                            <div className="new-record">
+                              🏆 NEW RECORD!
+                            </div>
+                          )}
+
+                          <button
+                            className="primary-button"
+                            onClick={resetGame}
+                          >
+                            🔄 PLAY AGAIN
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="power-status">
+                  {activePowerUp ? (
+                    <>
+                      <span>
+                        {POWER_UPS[activePowerUp].symbol}
+                      </span>
+
+                      <strong>
+                        {POWER_UPS[activePowerUp].name}
+                      </strong>
+
+                      <div className="power-bar">
+                        <div
+                          style={{
+                            width: `${
+                              (powerUpTime /
+                                POWER_UPS[activePowerUp]
+                                  .duration) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <span className="power-hint">
+                      Collect 🛡️ ⏱️ ✕2 power-ups
+                    </span>
+                  )}
+                </div>
+
+                <div className="mobile-controller">
+                  <button
+                    onPointerDown={(event) =>
+                      touchDirection(event, {
+                        x: 0,
+                        y: -1,
+                      })
+                    }
+                    onTouchStart={(event) =>
+                      touchDirection(event, {
+                        x: 0,
+                        y: -1,
+                      })
+                    }
+                  >
+                    ▲
+                  </button>
+
+                  <div>
                     <button
-                      type="button"
-                      className="primary-button"
-                      onClick={resetGame}
+                      onPointerDown={(event) =>
+                        touchDirection(event, {
+                          x: -1,
+                          y: 0,
+                        })
+                      }
+                      onTouchStart={(event) =>
+                        touchDirection(event, {
+                          x: -1,
+                          y: 0,
+                        })
+                      }
                     >
-                      PLAY AGAIN
+                      ◀
+                    </button>
+
+                    <button
+                      onPointerDown={(event) =>
+                        touchDirection(event, {
+                          x: 0,
+                          y: 1,
+                        })
+                      }
+                      onTouchStart={(event) =>
+                        touchDirection(event, {
+                          x: 0,
+                          y: 1,
+                        })
+                      }
+                    >
+                      ▼
+                    </button>
+
+                    <button
+                      onPointerDown={(event) =>
+                        touchDirection(event, {
+                          x: 1,
+                          y: 0,
+                        })
+                      }
+                      onTouchStart={(event) =>
+                        touchDirection(event, {
+                          x: 1,
+                          y: 0,
+                        })
+                      }
+                    >
+                      ▶
                     </button>
                   </div>
                 </div>
+
+                <div className="game-buttons">
+                  {gameStarted && !gameOver && (
+                    <button
+                      className="secondary-button"
+                      onClick={() =>
+                        setPaused((current) => !current)
+                      }
+                    >
+                      {paused ? '▶ RESUME' : '⏸ PAUSE'}
+                    </button>
+                  )}
+
+                  <button
+                    className="secondary-button"
+                    onClick={resetGame}
+                  >
+                    🔄 RESET
+                  </button>
+                </div>
+              </section>
+            </section>
+          </>
+        )}
+
+        {screen === 'leaderboard' && (
+          <section className="page-section">
+            <div className="page-heading">
+              <span>🏆</span>
+
+              <div>
+                <h2>Leaderboard</h2>
+                <p>Your best local scores</p>
+              </div>
+            </div>
+
+            <div className="leaderboard">
+              {leaderboard.length === 0 ? (
+                <div className="empty-state">
+                  🐍 No scores yet. Be the first!
+                </div>
+              ) : (
+                leaderboard.map((entry, index) => (
+                  <div
+                    className="leaderboard-row"
+                    key={`${entry.name}-${entry.score}-${index}`}
+                  >
+                    <div className="rank">
+                      {index === 0
+                        ? '🥇'
+                        : index === 1
+                          ? '🥈'
+                          : index === 2
+                            ? '🥉'
+                            : `#${index + 1}`}
+                    </div>
+
+                    <div className="leader-player">
+                      <strong>{entry.name}</strong>
+                      <small>
+                        {MODES[entry.mode]?.name ||
+                          entry.mode}{' '}
+                        • {entry.date}
+                      </small>
+                    </div>
+
+                    <strong className="leader-score">
+                      {entry.score}
+                    </strong>
+                  </div>
+                ))
               )}
             </div>
-          </div>
 
-          {message && (
-            <div className="floating-message">
-              {message}
-            </div>
-          )}
-        </div>
-
-        <section className="info-panel">
-          <div>
-            <span>FOOD</span>
-
-            <div className="legend">
-              <span>● 10</span>
-              <span>◆ 25</span>
-              <span>★ 50</span>
-            </div>
-          </div>
-
-          <div>
-            <span>POWER</span>
-
-            <div className="legend">
-              <span>🛡️ Shield</span>
-              <span>⏱️ Slow</span>
-              <span>✕2 Score</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="controls-section">
-          <h3>TOUCH CONTROLS</h3>
-
-          <div className="mobile-controller">
-            <button
-              type="button"
-              className="control-up"
-              onPointerDown={(event) =>
-                touchDirection(event, { x: 0, y: -1 })
-              }
-              onTouchStart={(event) =>
-                touchDirection(event, { x: 0, y: -1 })
-              }
-            >
-              ▲
-            </button>
-
-            <div className="control-middle">
+            {leaderboard.length > 0 && (
               <button
-                type="button"
-                onPointerDown={(event) =>
-                  touchDirection(event, { x: -1, y: 0 })
-                }
-                onTouchStart={(event) =>
-                  touchDirection(event, { x: -1, y: 0 })
-                }
+                className="danger-button"
+                onClick={() => {
+                  setLeaderboard([])
+                  save('neon-leaderboard', [])
+                }}
               >
-                ◀
+                🗑 Clear Leaderboard
               </button>
+            )}
+          </section>
+        )}
 
-              <button
-                type="button"
-                onPointerDown={(event) =>
-                  touchDirection(event, { x: 0, y: 1 })
-                }
-                onTouchStart={(event) =>
-                  touchDirection(event, { x: 0, y: 1 })
-                }
-              >
-                ▼
-              </button>
+        {screen === 'achievements' && (
+          <section className="page-section">
+            <div className="page-heading">
+              <span>🏅</span>
 
-              <button
-                type="button"
-                onPointerDown={(event) =>
-                  touchDirection(event, { x: 1, y: 0 })
-                }
-                onTouchStart={(event) =>
-                  touchDirection(event, { x: 1, y: 0 })
-                }
-              >
-                ▶
-              </button>
-            </div>
-          </div>
+              <div>
+                <h2>Achievements</h2>
 
-          <p className="desktop-controls">
-            DESKTOP: WASD / ARROW KEYS • SPACE = PAUSE • R = RESTART
-          </p>
-
-          <p className="mobile-controls">
-            📱 TAP THE ARROWS TO MOVE
-          </p>
-        </section>
-
-        <section className="stats-section">
-          <div className="section-title">
-            <span>PLAYER DATA</span>
-            <small>SAVED LOCALLY</small>
-          </div>
-
-          <div className="stats-grid">
-            <div>
-              <span>GAMES</span>
-              <strong>{gamesPlayed}</strong>
+                <p>
+                  {achievements.length}/
+                  {ACHIEVEMENT_LIST.length} unlocked
+                </p>
+              </div>
             </div>
 
-            <div>
-              <span>FOOD EATEN</span>
-              <strong>{totalFood}</strong>
-            </div>
-
-            <div>
-              <span>BEST COMBO</span>
-              <strong>x{bestCombo}</strong>
-            </div>
-
-            <div>
-              <span>ACHIEVEMENTS</span>
-              <strong>
-                {achievements.length}/{achievementList.length}
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="achievements-section">
-          <div className="section-title">
-            <span>ACHIEVEMENTS</span>
-
-            <small>
-              {achievements.length}/{achievementList.length} UNLOCKED
-            </small>
-          </div>
-
-          <div className="achievement-grid">
-            {achievementList.map(
-              ([id, title, description]) => {
-                const unlocked = achievements.includes(id)
+            <div className="achievement-grid">
+              {ACHIEVEMENT_LIST.map((achievement) => {
+                const unlocked = achievements.includes(
+                  achievement.id
+                )
 
                 return (
                   <div
-                    className={`achievement ${
-                      unlocked ? 'unlocked' : ''
-                    }`}
-                    key={id}
+                    className={
+                      unlocked
+                        ? 'achievement unlocked'
+                        : 'achievement'
+                    }
+                    key={achievement.id}
                   >
                     <div className="achievement-icon">
-                      {unlocked ? '🏆' : '🔒'}
+                      {unlocked
+                        ? achievement.icon
+                        : '🔒'}
                     </div>
 
                     <div>
-                      <strong>{title}</strong>
-                      <p>{description}</p>
+                      <strong>
+                        {achievement.title}
+                      </strong>
+
+                      <p>
+                        {achievement.description}
+                      </p>
                     </div>
                   </div>
                 )
-              }
-            )}
-          </div>
-        </section>
+              })}
+            </div>
+          </section>
+        )}
+
+        {screen === 'stats' && (
+          <section className="page-section">
+            <div className="page-heading">
+              <span>📊</span>
+
+              <div>
+                <h2>Statistics</h2>
+                <p>Your Neon Snake journey</p>
+              </div>
+            </div>
+
+            <div className="big-stats">
+              <div>
+                <span>🎮</span>
+                <small>GAMES</small>
+                <strong>{stats.games}</strong>
+              </div>
+
+              <div>
+                <span>🍎</span>
+                <small>FOOD EATEN</small>
+                <strong>{stats.food}</strong>
+              </div>
+
+              <div>
+                <span>⚡</span>
+                <small>BEST COMBO</small>
+                <strong>x{stats.bestCombo}</strong>
+              </div>
+
+              <div>
+                <span>🐍</span>
+                <small>LONGEST SNAKE</small>
+                <strong>{stats.longestSnake}</strong>
+              </div>
+
+              <div>
+                <span>👑</span>
+                <small>GOLDEN FOOD</small>
+                <strong>{stats.goldenFood}</strong>
+              </div>
+
+              <div>
+                <span>🛡️</span>
+                <small>POWER-UPS</small>
+                <strong>{stats.powerUps}</strong>
+              </div>
+
+              <div>
+                <span>⭐</span>
+                <small>TOTAL SCORE</small>
+                <strong>{stats.totalScore}</strong>
+              </div>
+
+              <div>
+                <span>🏆</span>
+                <small>HIGH SCORE</small>
+                <strong>{highScore}</strong>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {screen === 'settings' && (
+          <section className="page-section">
+            <div className="page-heading">
+              <span>⚙️</span>
+
+              <div>
+                <h2>Settings</h2>
+                <p>Customize your game</p>
+              </div>
+            </div>
+
+            <div className="settings-card">
+              <div className="setting-row">
+                <div>
+                  <strong>🔊 Sound Effects</strong>
+                  <p>Game sounds and achievement sounds</p>
+                </div>
+
+                <button
+                  className={
+                    soundOn
+                      ? 'toggle active'
+                      : 'toggle'
+                  }
+                  onClick={() =>
+                    setSoundOn((current) => !current)
+                  }
+                >
+                  {soundOn ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              <div className="setting-row">
+                <div>
+                  <strong>👤 Player Name</strong>
+                  <p>Name shown on the leaderboard</p>
+                </div>
+
+                <input
+                  className="settings-input"
+                  value={playerName}
+                  onChange={(event) =>
+                    setPlayerName(event.target.value)
+                  }
+                  maxLength={16}
+                />
+              </div>
+
+              <div>
+                <strong>🎨 Theme</strong>
+
+                <div className="theme-grid">
+                  {Object.entries(THEMES).map(
+                    ([key, item]) => (
+                      <button
+                        key={key}
+                        className={
+                          theme === key
+                            ? 'theme-button selected'
+                            : 'theme-button'
+                        }
+                        onClick={() => setTheme(key)}
+                      >
+                        <span>{item.icon}</span>
+                        {item.name}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <button
+                className="danger-button"
+                onClick={() => {
+                  localStorage.clear()
+
+                  window.location.reload()
+                }}
+              >
+                🗑 RESET ALL SAVED DATA
+              </button>
+            </div>
+          </section>
+        )}
       </main>
 
+      <nav className="bottom-nav">
+        <button
+          className={screen === 'game' ? 'active' : ''}
+          onClick={() => setScreen('game')}
+        >
+          <span>🎮</span>
+          <small>Game</small>
+        </button>
+
+        <button
+          className={
+            screen === 'leaderboard' ? 'active' : ''
+          }
+          onClick={() => setScreen('leaderboard')}
+        >
+          <span>🏆</span>
+          <small>Ranks</small>
+        </button>
+
+        <button
+          className={
+            screen === 'achievements' ? 'active' : ''
+          }
+          onClick={() => setScreen('achievements')}
+        >
+          <span>🏅</span>
+          <small>Badges</small>
+        </button>
+
+        <button
+          className={screen === 'stats' ? 'active' : ''}
+          onClick={() => setScreen('stats')}
+        >
+          <span>📊</span>
+          <small>Stats</small>
+        </button>
+
+        <button
+          className={screen === 'settings' ? 'active' : ''}
+          onClick={() => setScreen('settings')}
+        >
+          <span>⚙️</span>
+          <small>Settings</small>
+        </button>
+      </nav>
+
       <footer>
-        NEON SNAKE v3.0 • BUILT FOR THE GRID • GAME ON ⚡
+        <span>🐍 NEON SNAKE</span>
+        <span>v1.0</span>
+        <span>Built with React ⚡</span>
       </footer>
     </div>
   )
