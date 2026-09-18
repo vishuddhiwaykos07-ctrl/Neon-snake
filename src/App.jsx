@@ -1,1660 +1,2177 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import './App.css'
+import { useEffect, useMemo, useRef, useState } from "react";
+import "./App.css";
 
-const BOARD_SIZE = 20
+const SIZE = 20;
+const START_SNAKE = [
+  { x: 10, y: 10 },
+  { x: 9, y: 10 },
+  { x: 8, y: 10 },
+];
 
 const THEMES = {
   neon: {
-    name: 'Neon',
-    icon: '💜',
-    className: 'theme-neon',
+    name: "Neon",
+    accent: "#00f5ff",
+    accent2: "#8b5cf6",
+    bg: "#050816",
   },
   cyber: {
-    name: 'Cyber',
-    icon: '🔵',
-    className: 'theme-cyber',
-  },
-  matrix: {
-    name: 'Matrix',
-    icon: '🟢',
-    className: 'theme-matrix',
+    name: "Cyber",
+    accent: "#00ff88",
+    accent2: "#00b7ff",
+    bg: "#03100c",
   },
   fire: {
-    name: 'Fire',
-    icon: '🔥',
-    className: 'theme-fire',
+    name: "Fire",
+    accent: "#ff6b00",
+    accent2: "#ff1744",
+    bg: "#140503",
   },
   ice: {
-    name: 'Ice',
-    icon: '❄️',
-    className: 'theme-ice',
+    name: "Ice",
+    accent: "#8be9ff",
+    accent2: "#4169ff",
+    bg: "#04101b",
   },
-}
+  matrix: {
+    name: "Matrix",
+    accent: "#39ff14",
+    accent2: "#00a000",
+    bg: "#010801",
+  },
+};
 
-const FOOD_TYPES = {
-  normal: {
-    symbol: '●',
-    points: 10,
-    className: 'normal-food',
-  },
-  bonus: {
-    symbol: '◆',
-    points: 25,
-    className: 'bonus-food',
-  },
-  golden: {
-    symbol: '★',
-    points: 50,
-    className: 'golden-food',
-  },
-}
+const SKINS = {
+  neon: { name: "Neon", icon: "🐍", color: "#00f5ff" },
+  plasma: { name: "Plasma", icon: "🟣", color: "#b86cff" },
+  fire: { name: "Fire", icon: "🔥", color: "#ff6b00" },
+  ice: { name: "Ice", icon: "❄️", color: "#7dd3fc" },
+  rainbow: { name: "Rainbow", icon: "🌈", color: "#ff4ecd" },
+};
 
-const POWER_UPS = {
-  shield: {
-    symbol: '🛡️',
-    name: 'Shield',
-    duration: 6000,
+const ARENAS = {
+  grid: {
+    name: "Neon Grid",
+    icon: "▦",
   },
-  slow: {
-    symbol: '⏱️',
-    name: 'Slow',
-    duration: 6000,
+  cyber: {
+    name: "Cyber Arena",
+    icon: "◈",
   },
-  multiplier: {
-    symbol: '✕2',
-    name: '2X Score',
-    duration: 6000,
+  space: {
+    name: "Deep Space",
+    icon: "✦",
   },
-}
+  lava: {
+    name: "Lava Core",
+    icon: "♨",
+  },
+  ice: {
+    name: "Frozen Zone",
+    icon: "❄",
+  },
+};
 
 const MODES = {
   classic: {
-    name: 'Classic',
-    icon: '🐍',
-    description: 'Classic Snake gameplay',
+    name: "Classic",
+    icon: "🎮",
+    description: "Traditional Snake",
   },
   time: {
-    name: 'Time Attack',
-    icon: '⏱️',
-    description: 'Score as much as possible in 60 seconds',
+    name: "Time Attack",
+    icon: "⏱️",
+    description: "Score as much as possible",
   },
   endless: {
-    name: 'Endless',
-    icon: '♾️',
-    description: 'Keep going and chase your record',
+    name: "Endless",
+    icon: "♾️",
+    description: "Wrap around the arena",
   },
   challenge: {
-    name: 'Challenge',
-    icon: '💀',
-    description: 'Walls appear as your score increases',
+    name: "Challenge",
+    icon: "💀",
+    description: "Obstacles appear",
   },
-}
+};
 
-const ACHIEVEMENT_LIST = [
+const FOOD_TYPES = {
+  normal: {
+    points: 10,
+    icon: "●",
+    className: "normal-food",
+  },
+  bonus: {
+    points: 25,
+    icon: "◆",
+    className: "bonus-food",
+  },
+  golden: {
+    points: 50,
+    icon: "★",
+    className: "golden-food",
+  },
+};
+
+const POWERUPS = {
+  shield: {
+    name: "Shield",
+    icon: "🛡️",
+    duration: 8000,
+  },
+  slow: {
+    name: "Slow Time",
+    icon: "🐌",
+    duration: 7000,
+  },
+  multiplier: {
+    name: "2× Multiplier",
+    icon: "⚡",
+    duration: 8000,
+  },
+};
+
+const ACHIEVEMENTS = [
   {
-    id: 'first',
-    icon: '🎮',
-    title: 'First Game',
-    description: 'Complete your first game',
+    id: "first",
+    name: "First Bite",
+    description: "Eat your first food",
+    icon: "🍎",
   },
   {
-    id: 'score50',
-    icon: '⭐',
-    title: 'Rising Star',
-    description: 'Reach 50 points',
+    id: "score100",
+    name: "Rising Star",
+    description: "Reach 100 points",
+    icon: "⭐",
   },
   {
-    id: 'score100',
-    icon: '💯',
-    title: 'Century',
-    description: 'Reach 100 points',
+    id: "score500",
+    name: "High Roller",
+    description: "Reach 500 points",
+    icon: "💎",
   },
   {
-    id: 'score250',
-    icon: '🔥',
-    title: 'On Fire',
-    description: 'Reach 250 points',
+    id: "score1000",
+    name: "Snake Legend",
+    description: "Reach 1000 points",
+    icon: "👑",
   },
   {
-    id: 'combo5',
-    icon: '⚡',
-    title: 'Combo Master',
-    description: 'Reach a 5x combo',
+    id: "combo5",
+    name: "Combo Master",
+    description: "Reach a 5x combo",
+    icon: "🔥",
   },
   {
-    id: 'gold',
-    icon: '👑',
-    title: 'Golden Hunter',
-    description: 'Eat golden food',
+    id: "length15",
+    name: "Growing Up",
+    description: "Reach 15 snake length",
+    icon: "🐍",
   },
   {
-    id: 'power',
-    icon: '🛡️',
-    title: 'Powered Up',
-    description: 'Use a power-up',
+    id: "games10",
+    name: "Regular",
+    description: "Play 10 games",
+    icon: "🎮",
   },
   {
-    id: 'long',
-    icon: '🐍',
-    title: 'Long Snake',
-    description: 'Reach a length of 15',
+    id: "level10",
+    name: "Elite",
+    description: "Reach level 10",
+    icon: "🚀",
   },
-]
+  {
+    id: "golden",
+    name: "Golden Hunter",
+    description: "Eat golden food",
+    icon: "🏆",
+  },
+  {
+    id: "powerup",
+    name: "Powered Up",
+    description: "Collect a power-up",
+    icon: "⚡",
+  },
+];
 
 const DEFAULT_STATS = {
   games: 0,
   food: 0,
-  bestCombo: 0,
-  totalScore: 0,
   goldenFood: 0,
   powerUps: 0,
-  longestSnake: 3,
-}
+  totalScore: 0,
+  bestScore: 0,
+  bestCombo: 0,
+  bestLength: 3,
+};
 
-const getSaved = (key, fallback) => {
+function loadData(key, fallback) {
   try {
-    const value = localStorage.getItem(key)
-    return value !== null ? JSON.parse(value) : fallback
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : JSON.parse(value);
   } catch {
-    return fallback
+    return fallback;
   }
 }
 
-const save = (key, value) => {
+function saveData(key, value) {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // Ignore storage errors
+    // Ignore storage errors.
   }
 }
 
-const randomPosition = () => ({
-  x: Math.floor(Math.random() * BOARD_SIZE),
-  y: Math.floor(Math.random() * BOARD_SIZE),
-})
+function randomCell(excluded = [], walls = []) {
+  const blocked = [...excluded, ...walls];
 
-const isSamePosition = (a, b) => a.x === b.x && a.y === b.y
+  for (let i = 0; i < 500; i++) {
+    const cell = {
+      x: Math.floor(Math.random() * SIZE),
+      y: Math.floor(Math.random() * SIZE),
+    };
 
-const createFood = (snake) => {
-  let position = randomPosition()
+    const used = blocked.some(
+      (item) => item.x === cell.x && item.y === cell.y
+    );
 
-  while (snake.some((segment) => isSamePosition(segment, position))) {
-    position = randomPosition()
+    if (!used) return cell;
   }
 
-  const random = Math.random()
+  return { x: 2, y: 2 };
+}
 
-  let type = 'normal'
+function createFood(snake, walls = []) {
+  const random = Math.random();
+
+  let type = "normal";
 
   if (random > 0.94) {
-    type = 'golden'
-  } else if (random > 0.78) {
-    type = 'bonus'
+    type = "golden";
+  } else if (random > 0.82) {
+    type = "bonus";
   }
 
   return {
-    ...position,
+    ...randomCell(snake, walls),
     type,
-  }
+  };
 }
 
-const createPowerUp = (snake, food) => {
-  if (Math.random() > 0.08) return null
+function createPowerUp(snake, food, walls = []) {
+  const shouldSpawn = Math.random() < 0.12;
 
-  let position = randomPosition()
+  if (!shouldSpawn) return null;
 
-  while (
-    snake.some((segment) => isSamePosition(segment, position)) ||
-    isSamePosition(food, position)
-  ) {
-    position = randomPosition()
-  }
+  const cell = randomCell([...snake, food], walls);
 
-  const types = Object.keys(POWER_UPS)
-  const type = types[Math.floor(Math.random() * types.length)]
+  const types = Object.keys(POWERUPS);
 
   return {
-    ...position,
-    type,
-  }
+    ...cell,
+    type: types[Math.floor(Math.random() * types.length)],
+  };
 }
 
-const getInitialSnake = () => [
-  { x: 10, y: 10 },
-  { x: 9, y: 10 },
-  { x: 8, y: 10 },
-]
+function createWalls() {
+  const walls = [];
+
+  for (let i = 0; i < 10; i++) {
+    const wall = randomCell(
+      START_SNAKE,
+      walls
+    );
+
+    if (
+      !START_SNAKE.some(
+        (s) => s.x === wall.x && s.y === wall.y
+      )
+    ) {
+      walls.push(wall);
+    }
+  }
+
+  return walls;
+}
 
 function App() {
-  const [snake, setSnake] = useState(getInitialSnake)
-  const [food, setFood] = useState(() => createFood(getInitialSnake()))
-  const [powerUp, setPowerUp] = useState(null)
+  const [screen, setScreen] = useState("game");
 
-  const [direction, setDirection] = useState({ x: 1, y: 0 })
-  const nextDirection = useRef({ x: 1, y: 0 })
+  const [snake, setSnake] = useState(START_SNAKE);
+  const [food, setFood] = useState(() => createFood(START_SNAKE));
+  const [powerUp, setPowerUp] = useState(null);
+  const [walls, setWalls] = useState([]);
 
-  const [gameStarted, setGameStarted] = useState(false)
-  const [paused, setPaused] = useState(false)
-  const [gameOver, setGameOver] = useState(false)
+  const [direction, setDirection] = useState({ x: 1, y: 0 });
+  const directionRef = useRef({ x: 1, y: 0 });
 
-  const [score, setScore] = useState(0)
-  const [highScore, setHighScore] = useState(() =>
-    getSaved('neon-high-score', 0)
-  )
+  const [nextDirection, setNextDirection] = useState({
+    x: 1,
+    y: 0,
+  });
 
-  const [level, setLevel] = useState(1)
-  const [combo, setCombo] = useState(0)
-  const [bestCombo, setBestCombo] = useState(() =>
-    getSaved('neon-best-combo', 0)
-  )
+  const nextDirectionRef = useRef({ x: 1, y: 0 });
 
-  const [soundOn, setSoundOn] = useState(() =>
-    getSaved('neon-sound', true)
-  )
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
 
-  const [theme, setTheme] = useState(() =>
-    getSaved('neon-theme', 'neon')
-  )
+  const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(
+    () => loadData("neon-high-score", 0)
+  );
 
-  const [mode, setMode] = useState(() =>
-    getSaved('neon-mode', 'classic')
-  )
+  const [level, setLevel] = useState(1);
+  const [combo, setCombo] = useState(0);
+  const [bestCombo, setBestCombo] = useState(
+    () => loadData("neon-best-combo", 0)
+  );
 
-  const [playerName, setPlayerName] = useState(() =>
-    getSaved('neon-player', 'Nova')
-  )
+  const [soundOn, setSoundOn] = useState(
+    () => loadData("neon-sound", true)
+  );
 
-  const [stats, setStats] = useState(() =>
-    getSaved('neon-stats', DEFAULT_STATS)
-  )
+  const [volume, setVolume] = useState(
+    () => loadData("neon-volume", 0.5)
+  );
 
-  const [achievements, setAchievements] = useState(() =>
-    getSaved('neon-achievements', [])
-  )
+  const [theme, setTheme] = useState(
+    () => loadData("neon-theme", "neon")
+  );
 
-  const [leaderboard, setLeaderboard] = useState(() =>
-    getSaved('neon-leaderboard', [])
-  )
+  const [skin, setSkin] = useState(
+    () => loadData("neon-skin", "neon")
+  );
 
-  const [activePowerUp, setActivePowerUp] = useState(null)
-  const [powerUpTime, setPowerUpTime] = useState(0)
+  const [arena, setArena] = useState(
+    () => loadData("neon-arena", "grid")
+  );
 
-  const [timeLeft, setTimeLeft] = useState(60)
+  const [mode, setMode] = useState(
+    () => loadData("neon-mode", "classic")
+  );
 
-  const [message, setMessage] = useState('Ready?')
-  const [screen, setScreen] = useState('game')
+  const [playerName, setPlayerName] = useState(
+    () => loadData("neon-player", "Nova")
+  );
 
-  const [walls, setWalls] = useState([])
+  const [stats, setStats] = useState(
+    () => loadData("neon-stats", DEFAULT_STATS)
+  );
 
-  const touchStart = useRef(null)
-  const audioContext = useRef(null)
+  const [achievements, setAchievements] = useState(
+    () => loadData("neon-achievements", [])
+  );
 
-  const currentTheme = THEMES[theme] || THEMES.neon
+  const [leaderboard, setLeaderboard] = useState(
+    () => loadData("neon-leaderboard", [])
+  );
+
+  const [activePowerUp, setActivePowerUp] = useState(null);
+  const [powerUpTime, setPowerUpTime] = useState(0);
+
+  const [timeLeft, setTimeLeft] = useState(60);
+
+  const [message, setMessage] = useState(
+    "Press START to play"
+  );
+
+  const [dailyChallenge] = useState(() =>
+    loadData("neon-daily", {
+      target: 250,
+      reward: "🔥 Fire Skin",
+      progress: 0,
+    })
+  );
+
+  const [challengeProgress, setChallengeProgress] =
+    useState(dailyChallenge.progress || 0);
+
+  const [particles, setParticles] = useState([]);
+
+  const audioContext = useRef(null);
+  const gameTimer = useRef(null);
+  const powerTimer = useRef(null);
+  const messageTimer = useRef(null);
+  const touchStart = useRef(null);
+
+  const currentTheme = THEMES[theme];
+  const currentSkin = SKINS[skin];
 
   const speed = useMemo(() => {
-    let base = Math.max(70, 170 - (level - 1) * 12)
+    let base = Math.max(65, 170 - (level - 1) * 9);
 
-    if (activePowerUp === 'slow') {
-      base += 100
+    if (activePowerUp === "slow") {
+      base += 75;
     }
 
-    if (mode === 'challenge') {
-      base = Math.max(55, base - 10)
-    }
+    return base;
+  }, [level, activePowerUp]);
 
-    return base
-  }, [level, activePowerUp, mode])
+  useEffect(() => {
+    saveData("neon-high-score", highScore);
+  }, [highScore]);
 
-  const playSound = (frequency = 500, duration = 0.07) => {
-    if (!soundOn) return
+  useEffect(() => {
+    saveData("neon-best-combo", bestCombo);
+  }, [bestCombo]);
+
+  useEffect(() => {
+    saveData("neon-sound", soundOn);
+  }, [soundOn]);
+
+  useEffect(() => {
+    saveData("neon-volume", volume);
+  }, [volume]);
+
+  useEffect(() => {
+    saveData("neon-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    saveData("neon-skin", skin);
+  }, [skin]);
+
+  useEffect(() => {
+    saveData("neon-arena", arena);
+  }, [arena]);
+
+  useEffect(() => {
+    saveData("neon-mode", mode);
+  }, [mode]);
+
+  useEffect(() => {
+    saveData("neon-player", playerName);
+  }, [playerName]);
+
+  useEffect(() => {
+    saveData("neon-stats", stats);
+  }, [stats]);
+
+  useEffect(() => {
+    saveData("neon-achievements", achievements);
+  }, [achievements]);
+
+  useEffect(() => {
+    saveData("neon-leaderboard", leaderboard);
+  }, [leaderboard]);
+
+  function playSound(type) {
+    if (!soundOn) return;
 
     try {
-      const AudioContext =
-        window.AudioContext || window.webkitAudioContext
-
-      if (!AudioContext) return
-
       if (!audioContext.current) {
-        audioContext.current = new AudioContext()
+        audioContext.current =
+          new window.AudioContext();
       }
 
-      const ctx = audioContext.current
+      const ctx = audioContext.current;
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-      if (ctx.state === 'suspended') {
-        ctx.resume()
-      }
+      const frequencies = {
+        eat: 520,
+        bonus: 700,
+        golden: 900,
+        power: 350,
+        gameover: 130,
+        level: 800,
+      };
 
-      const oscillator = ctx.createOscillator()
-      const gain = ctx.createGain()
+      oscillator.frequency.value =
+        frequencies[type] || 500;
 
-      oscillator.frequency.value = frequency
-      oscillator.type = 'sine'
+      oscillator.type = "sine";
 
-      gain.gain.setValueAtTime(0.08, ctx.currentTime)
+      gain.gain.setValueAtTime(
+        volume * 0.08,
+        ctx.currentTime
+      );
+
       gain.gain.exponentialRampToValueAtTime(
         0.001,
-        ctx.currentTime + duration
-      )
+        ctx.currentTime + 0.12
+      );
 
-      oscillator.connect(gain)
-      gain.connect(ctx.destination)
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
 
-      oscillator.start()
-      oscillator.stop(ctx.currentTime + duration)
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.12);
     } catch {
-      // Sound is optional
+      // Audio is optional.
     }
   }
 
-  const showMessage = (text) => {
-    setMessage(text)
+  function showMessage(text) {
+    setMessage(text);
 
-    window.setTimeout(() => {
-      setMessage('')
-    }, 1000)
+    clearTimeout(messageTimer.current);
+
+    messageTimer.current = setTimeout(() => {
+      setMessage("");
+    }, 1800);
   }
 
-  const unlockAchievement = (id) => {
-    setAchievements((current) => {
-      if (current.includes(id)) return current
+  function spawnParticles(cell, type = "normal") {
+    const newParticles = Array.from(
+      { length: type === "golden" ? 12 : 7 },
+      (_, index) => ({
+        id: `${Date.now()}-${index}`,
+        x: cell.x,
+        y: cell.y,
+        dx: Math.random() * 2 - 1,
+        dy: Math.random() * 2 - 1,
+      })
+    );
 
-      const updated = [...current, id]
-      const achievement = ACHIEVEMENT_LIST.find(
+    setParticles((old) => [
+      ...old,
+      ...newParticles,
+    ]);
+
+    setTimeout(() => {
+      setParticles((old) =>
+        old.filter(
+          (particle) =>
+            !newParticles.some(
+              (p) => p.id === particle.id
+            )
+        )
+      );
+    }, 450);
+  }
+
+  function unlockAchievement(id) {
+    setAchievements((old) => {
+      if (old.includes(id)) return old;
+
+      const achievement = ACHIEVEMENTS.find(
         (item) => item.id === id
-      )
+      );
 
       if (achievement) {
-        showMessage(`${achievement.icon} ${achievement.title}!`)
-        playSound(850, 0.12)
+        setTimeout(() => {
+          showMessage(
+            `${achievement.icon} Achievement unlocked!`
+          );
+        }, 0);
       }
 
-      return updated
-    })
+      return [...old, id];
+    });
   }
 
-  const generateWalls = () => {
-    const newWalls = []
-
-    const amount = Math.min(12, Math.floor(score / 75))
-
-    for (let i = 0; i < amount; i++) {
-      let position = randomPosition()
-
-      let attempts = 0
-
-      while (
-        (
-          snake.some((segment) =>
-            isSamePosition(segment, position)
-          ) ||
-          isSamePosition(food, position) ||
-          newWalls.some((wall) =>
-            isSamePosition(wall, position)
-          )
-        ) &&
-        attempts < 100
-      ) {
-        position = randomPosition()
-        attempts++
-      }
-
-      newWalls.push(position)
+  function checkAchievements(
+    newScore,
+    newCombo,
+    newLength,
+    newLevel
+  ) {
+    if (stats.food > 0 || newScore > 0) {
+      unlockAchievement("first");
     }
 
-    setWalls(newWalls)
+    if (newScore >= 100) {
+      unlockAchievement("score100");
+    }
+
+    if (newScore >= 500) {
+      unlockAchievement("score500");
+    }
+
+    if (newScore >= 1000) {
+      unlockAchievement("score1000");
+    }
+
+    if (newCombo >= 5) {
+      unlockAchievement("combo5");
+    }
+
+    if (newLength >= 15) {
+      unlockAchievement("length15");
+    }
+
+    if (stats.games >= 10) {
+      unlockAchievement("games10");
+    }
+
+    if (newLevel >= 10) {
+      unlockAchievement("level10");
+    }
   }
 
-  const changeDirection = (newDirection) => {
-    const current = nextDirection.current
+  function startGame() {
+    const initialSnake = [...START_SNAKE];
+
+    const initialWalls =
+      mode === "challenge"
+        ? createWalls()
+        : [];
+
+    const initialFood = createFood(
+      initialSnake,
+      initialWalls
+    );
+
+    setSnake(initialSnake);
+    setDirection({ x: 1, y: 0 });
+    directionRef.current = { x: 1, y: 0 };
+
+    setNextDirection({ x: 1, y: 0 });
+    nextDirectionRef.current = { x: 1, y: 0 };
+
+    setFood(initialFood);
+    setWalls(initialWalls);
+    setPowerUp(null);
+
+    setActivePowerUp(null);
+    setPowerUpTime(0);
+
+    setScore(0);
+    setLevel(1);
+    setCombo(0);
+
+    setTimeLeft(60);
+
+    setGameOver(false);
+    setPaused(false);
+    setRunning(true);
+
+    showMessage(
+      mode === "time"
+        ? "⏱️ 60 seconds!"
+        : "GO! 🐍"
+    );
+
+    playSound("level");
+  }
+
+  function finishGame(finalScore = score) {
+    setRunning(false);
+    setGameOver(true);
+    setPaused(false);
+
+    playSound("gameover");
+
+    setStats((old) => ({
+      ...old,
+      games: old.games + 1,
+      totalScore: old.totalScore + finalScore,
+      bestScore: Math.max(old.bestScore, finalScore),
+      bestCombo: Math.max(old.bestCombo, bestCombo),
+      bestLength: Math.max(
+        old.bestLength,
+        snake.length
+      ),
+    }));
+
+    setLeaderboard((old) => {
+      const updated = [
+        ...old,
+        {
+          name: playerName || "Player",
+          score: finalScore,
+          mode: MODES[mode].name,
+          date: new Date().toLocaleDateString(),
+        },
+      ];
+
+      return updated
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+    });
+
+    if (finalScore > highScore) {
+      setHighScore(finalScore);
+      showMessage("🏆 NEW HIGH SCORE!");
+    } else {
+      showMessage("GAME OVER");
+    }
+  }
+
+  function changeDirection(newDirection) {
+    const current = directionRef.current;
 
     if (
       newDirection.x === -current.x &&
       newDirection.y === -current.y
     ) {
-      return
+      return;
     }
 
-    nextDirection.current = newDirection
+    nextDirectionRef.current = newDirection;
+    setNextDirection(newDirection);
   }
 
-  const resetGame = () => {
-    const newSnake = getInitialSnake()
+  function moveSnake() {
+    if (!running || paused || gameOver) return;
 
-    setSnake(newSnake)
-    setFood(createFood(newSnake))
-    setPowerUp(null)
+    const newDirection =
+      nextDirectionRef.current;
 
-    nextDirection.current = { x: 1, y: 0 }
-    setDirection({ x: 1, y: 0 })
+    directionRef.current = newDirection;
+    setDirection(newDirection);
 
-    setGameStarted(false)
-    setPaused(false)
-    setGameOver(false)
+    setSnake((currentSnake) => {
+      const head = currentSnake[0];
 
-    setScore(0)
-    setLevel(1)
-    setCombo(0)
+      let newHead = {
+        x: head.x + newDirection.x,
+        y: head.y + newDirection.y,
+      };
 
-    setActivePowerUp(null)
-    setPowerUpTime(0)
-
-    setTimeLeft(60)
-
-    setWalls([])
-
-    setMessage('Ready?')
-  }
-
-  const startGame = () => {
-    if (gameOver) {
-      resetGame()
-    }
-
-    setGameStarted(true)
-    setPaused(false)
-    setGameOver(false)
-
-    setMessage('GO!')
-
-    playSound(700, 0.1)
-  }
-
-  const finishGame = () => {
-    if (!gameStarted || gameOver) return
-
-    setGameOver(true)
-    setGameStarted(false)
-    setPaused(false)
-
-    playSound(180, 0.2)
-
-    setStats((current) => {
-      const updated = {
-        ...current,
-        games: current.games + 1,
-        totalScore: current.totalScore + score,
-        bestCombo: Math.max(current.bestCombo, combo),
-        longestSnake: Math.max(
-          current.longestSnake,
-          snake.length
-        ),
-      }
-
-      save('neon-stats', updated)
-
-      return updated
-    })
-
-    if (score > highScore) {
-      setHighScore(score)
-      save('neon-high-score', score)
-    }
-
-    const newEntry = {
-      name: playerName || 'Player',
-      score,
-      mode,
-      date: new Date().toLocaleDateString(),
-    }
-
-    setLeaderboard((current) => {
-      const updated = [...current, newEntry]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10)
-
-      save('neon-leaderboard', updated)
-
-      return updated
-    })
-
-    unlockAchievement('first')
-
-    if (score >= 50) unlockAchievement('score50')
-    if (score >= 100) unlockAchievement('score100')
-    if (score >= 250) unlockAchievement('score250')
-    if (combo >= 5) unlockAchievement('combo5')
-    if (snake.length >= 15) unlockAchievement('long')
-  }
-
-  const eatFood = () => {
-    const foodData = FOOD_TYPES[food.type]
-
-    let points = foodData.points
-
-    if (activePowerUp === 'multiplier') {
-      points *= 2
-    }
-
-    const comboBonus = Math.max(0, combo * 2)
-
-    points += comboBonus
-
-    setScore((current) => {
-      const updated = current + points
-
-      const newLevel =
-        updated >= 200
-          ? 4
-          : updated >= 100
-            ? 3
-            : updated >= 50
-              ? 2
-              : 1
-
-      if (newLevel !== level) {
-        setLevel(newLevel)
-        showMessage(`LEVEL ${newLevel}!`)
-        playSound(950, 0.12)
-      }
-
-      if (updated > highScore) {
-        setHighScore(updated)
-        save('neon-high-score', updated)
-      }
-
-      return updated
-    })
-
-    const newCombo = combo + 1
-
-    setCombo(newCombo)
-    setBestCombo((current) => {
-      const updated = Math.max(current, newCombo)
-      save('neon-best-combo', updated)
-      return updated
-    })
-
-    setStats((current) => {
-      const updated = {
-        ...current,
-        food: current.food + 1,
-        bestCombo: Math.max(current.bestCombo, newCombo),
-        goldenFood:
-          current.goldenFood +
-          (food.type === 'golden' ? 1 : 0),
-        longestSnake: Math.max(
-          current.longestSnake,
-          snake.length + 1
-        ),
-      }
-
-      save('neon-stats', updated)
-
-      return updated
-    })
-
-    if (food.type === 'golden') {
-      unlockAchievement('gold')
-      playSound(1100, 0.14)
-      showMessage('👑 GOLDEN +50!')
-    } else if (food.type === 'bonus') {
-      playSound(800, 0.1)
-      showMessage(`◆ +${points}`)
-    } else {
-      playSound(600, 0.07)
-    }
-
-    const newFood = createFood(snake)
-    setFood(newFood)
-
-    const newPowerUp = createPowerUp(snake, newFood)
-
-    if (newPowerUp) {
-      setPowerUp(newPowerUp)
-    }
-  }
-
-  const collectPowerUp = () => {
-    if (!powerUp) return
-
-    const data = POWER_UPS[powerUp.type]
-
-    setActivePowerUp(powerUp.type)
-    setPowerUpTime(data.duration)
-
-    setStats((current) => {
-      const updated = {
-        ...current,
-        powerUps: current.powerUps + 1,
-      }
-
-      save('neon-stats', updated)
-
-      return updated
-    })
-
-    unlockAchievement('power')
-
-    showMessage(`${data.symbol} ${data.name}!`)
-    playSound(1000, 0.14)
-
-    setPowerUp(null)
-  }
-
-  useEffect(() => {
-    save('neon-sound', soundOn)
-  }, [soundOn])
-
-  useEffect(() => {
-    save('neon-theme', theme)
-  }, [theme])
-
-  useEffect(() => {
-    save('neon-mode', mode)
-  }, [mode])
-
-  useEffect(() => {
-    save('neon-player', playerName)
-  }, [playerName])
-
-  useEffect(() => {
-    if (!gameStarted || paused || gameOver) return
-
-    const timer = window.setInterval(() => {
-      setSnake((currentSnake) => {
-        const move = nextDirection.current
-
-        setDirection(move)
-
-        const head = currentSnake[0]
-
-        const newHead = {
-          x: head.x + move.x,
-          y: head.y + move.y,
-        }
-
-        let hitWall =
+      if (mode === "endless") {
+        newHead.x =
+          (newHead.x + SIZE) % SIZE;
+        newHead.y =
+          (newHead.y + SIZE) % SIZE;
+      } else {
+        if (
           newHead.x < 0 ||
-          newHead.x >= BOARD_SIZE ||
+          newHead.x >= SIZE ||
           newHead.y < 0 ||
-          newHead.y >= BOARD_SIZE
+          newHead.y >= SIZE
+        ) {
+          finishGame(score);
+          return currentSnake;
+        }
+      }
 
-        const hitChallengeWall = walls.some((wall) =>
-          isSamePosition(wall, newHead)
-        )
+      const hitWall = walls.some(
+        (wall) =>
+          wall.x === newHead.x &&
+          wall.y === newHead.y
+      );
 
-        if (hitChallengeWall) {
-          hitWall = true
+      if (
+        hitWall &&
+        activePowerUp !== "shield"
+      ) {
+        finishGame(score);
+        return currentSnake;
+      }
+
+      const hitSelf = currentSnake.some(
+        (segment) =>
+          segment.x === newHead.x &&
+          segment.y === newHead.y
+      );
+
+      if (
+        hitSelf &&
+        activePowerUp !== "shield"
+      ) {
+        finishGame(score);
+        return currentSnake;
+      }
+
+      let newSnake = [
+        newHead,
+        ...currentSnake,
+      ];
+
+      const ateFood =
+        newHead.x === food.x &&
+        newHead.y === food.y;
+
+      const atePowerUp =
+        powerUp &&
+        newHead.x === powerUp.x &&
+        newHead.y === powerUp.y;
+
+      if (ateFood) {
+        const foodData =
+          FOOD_TYPES[food.type];
+
+        const comboBonus =
+          combo >= 2
+            ? combo * 5
+            : 0;
+
+        const multiplier =
+          activePowerUp === "multiplier"
+            ? 2
+            : 1;
+
+        const gained =
+          (foodData.points + comboBonus) *
+          multiplier;
+
+        const newScore =
+          score + gained;
+
+        const newCombo = combo + 1;
+
+        const newLevel =
+          Math.floor(newScore / 100) + 1;
+
+        setScore(newScore);
+        setCombo(newCombo);
+        setLevel(newLevel);
+
+        if (newCombo > bestCombo) {
+          setBestCombo(newCombo);
         }
 
-        if (hitWall) {
-          if (activePowerUp === 'shield') {
-            newHead.x =
-              (newHead.x + BOARD_SIZE) % BOARD_SIZE
-            newHead.y =
-              (newHead.y + BOARD_SIZE) % BOARD_SIZE
+        setStats((old) => ({
+          ...old,
+          food: old.food + 1,
+          goldenFood:
+            old.goldenFood +
+            (food.type === "golden" ? 1 : 0),
+          bestCombo: Math.max(
+            old.bestCombo,
+            newCombo
+          ),
+          bestLength: Math.max(
+            old.bestLength,
+            newSnake.length
+          ),
+        }));
 
-            setActivePowerUp(null)
-            setPowerUpTime(0)
-
-            showMessage('🛡️ SHIELD SAVED YOU!')
-            playSound(900, 0.1)
-          } else if (mode === 'endless') {
-            newHead.x =
-              (newHead.x + BOARD_SIZE) % BOARD_SIZE
-            newHead.y =
-              (newHead.y + BOARD_SIZE) % BOARD_SIZE
-          } else {
-            finishGame()
-            return currentSnake
-          }
-        }
-
-        const willEat = isSamePosition(newHead, food)
-
-        const bodyToCheck = willEat
-          ? currentSnake
-          : currentSnake.slice(0, -1)
-
-        const hitSelf = bodyToCheck.some((segment) =>
-          isSamePosition(segment, newHead)
-        )
-
-        if (hitSelf) {
-          if (activePowerUp === 'shield') {
-            setActivePowerUp(null)
-            setPowerUpTime(0)
-
-            showMessage('🛡️ SHIELD BROKE!')
-            playSound(400, 0.1)
-          } else {
-            finishGame()
-            return currentSnake
-          }
-        }
-
-        const hitPowerUp =
-          powerUp && isSamePosition(newHead, powerUp)
-
-        if (hitPowerUp) {
-          collectPowerUp()
-        }
-
-        let nextSnake = [newHead, ...currentSnake]
-
-        if (willEat) {
-          eatFood()
+        if (food.type === "golden") {
+          playSound("golden");
+          showMessage("🏆 GOLDEN FOOD +50!");
+          unlockAchievement("golden");
+        } else if (food.type === "bonus") {
+          playSound("bonus");
+          showMessage(`◆ +${gained}`);
         } else {
-          nextSnake.pop()
-          setCombo((current) =>
-            Math.max(0, current - 1)
-          )
+          playSound("eat");
+
+          if (newCombo >= 3) {
+            showMessage(
+              `🔥 ${newCombo}x COMBO! +${gained}`
+            );
+          }
         }
 
-        return nextSnake
-      })
-    }, speed)
+        spawnParticles(
+          food,
+          food.type
+        );
 
-    return () => window.clearInterval(timer)
+        if (newLevel > level) {
+          playSound("level");
+          showMessage(
+            `🚀 LEVEL ${newLevel}!`
+          );
+        }
+
+        if (newScore > highScore) {
+          setHighScore(newScore);
+        }
+
+        setChallengeProgress((old) =>
+          Math.min(
+            dailyChallenge.target,
+            old + gained
+          )
+        );
+
+        checkAchievements(
+          newScore,
+          newCombo,
+          newSnake.length,
+          newLevel
+        );
+
+        setFood(
+          createFood(
+            newSnake,
+            walls
+          )
+        );
+
+        const newPowerUp =
+          createPowerUp(
+            newSnake,
+            food,
+            walls
+          );
+
+        if (newPowerUp) {
+          setPowerUp(newPowerUp);
+        }
+      } else {
+        newSnake.pop();
+
+        setCombo(0);
+      }
+
+      if (atePowerUp) {
+        const power =
+          POWERUPS[powerUp.type];
+
+        setActivePowerUp(powerUp.type);
+        setPowerUpTime(power.duration);
+
+        setStats((old) => ({
+          ...old,
+          powerUps: old.powerUps + 1,
+        }));
+
+        unlockAchievement("powerup");
+
+        playSound("power");
+        showMessage(
+          `${power.icon} ${power.name}!`
+        );
+
+        spawnParticles(
+          powerUp,
+          "power"
+        );
+
+        setPowerUp(null);
+      }
+
+      return newSnake;
+    });
+  }
+
+  useEffect(() => {
+    if (!running || paused || gameOver) {
+      clearInterval(gameTimer.current);
+      return;
+    }
+
+    gameTimer.current = setInterval(
+      moveSnake,
+      speed
+    );
+
+    return () => {
+      clearInterval(gameTimer.current);
+    };
   }, [
-    gameStarted,
+    running,
     paused,
     gameOver,
     speed,
+    score,
+    combo,
     food,
     powerUp,
+    walls,
     activePowerUp,
     mode,
-    walls,
-  ])
+  ]);
 
   useEffect(() => {
-    if (!activePowerUp) return
+    if (!activePowerUp) return;
 
-    const interval = window.setInterval(() => {
-      setPowerUpTime((current) => {
-        if (current <= 100) {
-          setActivePowerUp(null)
-          return 0
+    clearInterval(powerTimer.current);
+
+    powerTimer.current = setInterval(() => {
+      setPowerUpTime((old) => {
+        if (old <= 100) {
+          setActivePowerUp(null);
+          return 0;
         }
 
-        return current - 100
-      })
-    }, 100)
+        return old - 100;
+      });
+    }, 100);
 
-    return () => window.clearInterval(interval)
-  }, [activePowerUp])
+    return () => {
+      clearInterval(powerTimer.current);
+    };
+  }, [activePowerUp]);
 
   useEffect(() => {
     if (
-      mode === 'time' &&
-      gameStarted &&
-      !paused &&
-      !gameOver
+      mode !== "time" ||
+      !running ||
+      paused ||
+      gameOver
     ) {
-      const timer = window.setInterval(() => {
-        setTimeLeft((current) => {
-          if (current <= 1) {
-            finishGame()
-            return 0
-          }
-
-          return current - 1
-        })
-      }, 1000)
-
-      return () => window.clearInterval(timer)
+      return;
     }
-  }, [mode, gameStarted, paused, gameOver])
 
-  useEffect(() => {
-    if (
-      mode === 'challenge' &&
-      gameStarted &&
-      score > 0 &&
-      score % 75 === 0
-    ) {
-      generateWalls()
-    }
-  }, [score, mode, gameStarted])
-
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      const key = event.key.toLowerCase()
-
-      if (
-        [
-          'arrowup',
-          'arrowdown',
-          'arrowleft',
-          'arrowright',
-          'w',
-          'a',
-          's',
-          'd',
-          ' ',
-        ].includes(key)
-      ) {
-        event.preventDefault()
-      }
-
-      if (key === 'arrowup' || key === 'w') {
-        changeDirection({ x: 0, y: -1 })
-      }
-
-      if (key === 'arrowdown' || key === 's') {
-        changeDirection({ x: 0, y: 1 })
-      }
-
-      if (key === 'arrowleft' || key === 'a') {
-        changeDirection({ x: -1, y: 0 })
-      }
-
-      if (key === 'arrowright' || key === 'd') {
-        changeDirection({ x: 1, y: 0 })
-      }
-
-      if (key === ' ') {
-        if (!gameStarted && !gameOver) {
-          startGame()
-        } else if (gameStarted) {
-          setPaused((current) => !current)
+    const timer = setInterval(() => {
+      setTimeLeft((old) => {
+        if (old <= 1) {
+          finishGame(score);
+          return 0;
         }
-      }
 
-      if (key === 'r') {
-        resetGame()
+        return old - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [
+    mode,
+    running,
+    paused,
+    gameOver,
+    score,
+  ]);
+
+  function resetProgress() {
+    if (
+      !window.confirm(
+        "Reset all saved progress?"
+      )
+    ) {
+      return;
+    }
+
+    localStorage.removeItem(
+      "neon-high-score"
+    );
+
+    localStorage.removeItem(
+      "neon-best-combo"
+    );
+
+    localStorage.removeItem(
+      "neon-stats"
+    );
+
+    localStorage.removeItem(
+      "neon-achievements"
+    );
+
+    localStorage.removeItem(
+      "neon-leaderboard"
+    );
+
+    setHighScore(0);
+    setBestCombo(0);
+    setStats(DEFAULT_STATS);
+    setAchievements([]);
+    setLeaderboard([]);
+
+    showMessage("Progress reset");
+  }
+
+  function handleKeyDown(event) {
+    const key = event.key.toLowerCase();
+
+    if (
+      [
+        "arrowup",
+        "arrowdown",
+        "arrowleft",
+        "arrowright",
+        " ",
+      ].includes(key)
+    ) {
+      event.preventDefault();
+    }
+
+    if (key === "arrowup" || key === "w") {
+      changeDirection({
+        x: 0,
+        y: -1,
+      });
+    }
+
+    if (key === "arrowdown" || key === "s") {
+      changeDirection({
+        x: 0,
+        y: 1,
+      });
+    }
+
+    if (key === "arrowleft" || key === "a") {
+      changeDirection({
+        x: -1,
+        y: 0,
+      });
+    }
+
+    if (key === "arrowright" || key === "d") {
+      changeDirection({
+        x: 1,
+        y: 0,
+      });
+    }
+
+    if (key === " ") {
+      if (running) {
+        setPaused((old) => !old);
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    if (key === "enter") {
+      if (!running || gameOver) {
+        startGame();
+      }
+    }
+  }
 
-    return () =>
-      window.removeEventListener('keydown', handleKeyDown)
-  }, [gameStarted, gameOver])
+  useEffect(() => {
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
 
-  const handleTouchStart = (event) => {
-    const touch = event.touches[0]
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  });
+
+  function handleTouchStart(event) {
+    const touch =
+      event.touches?.[0];
+
+    if (!touch) return;
 
     touchStart.current = {
       x: touch.clientX,
       y: touch.clientY,
-    }
+    };
   }
 
-  const handleTouchEnd = (event) => {
-    if (!touchStart.current) return
+  function handleTouchEnd(event) {
+    if (!touchStart.current) return;
 
-    const touch = event.changedTouches[0]
+    const touch =
+      event.changedTouches?.[0];
+
+    if (!touch) return;
 
     const dx =
-      touch.clientX - touchStart.current.x
+      touch.clientX -
+      touchStart.current.x;
 
     const dy =
-      touch.clientY - touchStart.current.y
+      touch.clientY -
+      touchStart.current.y;
 
-    touchStart.current = null
-
-    const minimumDistance = 25
+    touchStart.current = null;
 
     if (
-      Math.abs(dx) < minimumDistance &&
-      Math.abs(dy) < minimumDistance
+      Math.abs(dx) < 25 &&
+      Math.abs(dy) < 25
     ) {
-      return
+      return;
     }
 
     if (Math.abs(dx) > Math.abs(dy)) {
       changeDirection({
         x: dx > 0 ? 1 : -1,
         y: 0,
-      })
+      });
     } else {
       changeDirection({
         x: 0,
         y: dy > 0 ? 1 : -1,
-      })
+      });
     }
   }
 
-  const touchDirection = (event, move) => {
-    event.preventDefault()
-    event.stopPropagation()
+  function setModeAndReset(newMode) {
+    setMode(newMode);
 
-    changeDirection(move)
+    if (running) {
+      setRunning(false);
+      setGameOver(false);
+      setPaused(false);
+    }
+
+    showMessage(
+      `${MODES[newMode].icon} ${MODES[newMode].name}`
+    );
   }
 
-  const cells = []
+  function renderGame() {
+    return (
+      <div className="game-layout">
+        <section className="game-section">
+          <div className="game-header">
+            <div>
+              <div className="eyebrow">
+                CURRENT RUN
+              </div>
 
-  for (let y = 0; y < BOARD_SIZE; y++) {
-    for (let x = 0; x < BOARD_SIZE; x++) {
-      cells.push({ x, y })
-    }
+              <h1>
+                {MODES[mode].icon}{" "}
+                {MODES[mode].name}
+              </h1>
+            </div>
+
+            <div className="header-actions">
+              <button
+                className="icon-button"
+                onClick={() =>
+                  setSoundOn((old) => !old)
+                }
+              >
+                {soundOn ? "🔊" : "🔇"}
+              </button>
+
+              <button
+                className="icon-button"
+                onClick={() =>
+                  setPaused((old) => !old)
+                }
+                disabled={!running}
+              >
+                {paused ? "▶" : "Ⅱ"}
+              </button>
+            </div>
+          </div>
+
+          <div className="score-row">
+            <div className="score-card">
+              <span>SCORE</span>
+              <strong>{score}</strong>
+            </div>
+
+            <div className="score-card">
+              <span>BEST</span>
+              <strong>{highScore}</strong>
+            </div>
+
+            <div className="score-card">
+              <span>LEVEL</span>
+              <strong>{level}</strong>
+            </div>
+
+            <div className="score-card">
+              <span>COMBO</span>
+              <strong>
+                {combo > 1
+                  ? `${combo}x`
+                  : "—"}
+              </strong>
+            </div>
+
+            {mode === "time" && (
+              <div className="score-card timer-card">
+                <span>TIME</span>
+                <strong>
+                  {timeLeft}s
+                </strong>
+              </div>
+            )}
+          </div>
+
+          {activePowerUp && (
+            <div className="power-status">
+              <span>
+                {POWERUPS[
+                  activePowerUp
+                ].icon}
+              </span>
+
+              <div>
+                <b>
+                  {
+                    POWERUPS[
+                      activePowerUp
+                    ].name
+                  }
+                </b>
+
+                <div className="power-bar">
+                  <div
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (powerUpTime /
+                          POWERUPS[
+                            activePowerUp
+                          ].duration) *
+                          100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div
+            className={`board arena-${arena} ${
+              paused ? "paused-board" : ""
+            } ${
+              gameOver
+                ? "gameover-board"
+                : ""
+            }`}
+            onTouchStart={
+              handleTouchStart
+            }
+            onTouchEnd={handleTouchEnd}
+          >
+            {Array.from({
+              length: SIZE * SIZE,
+            }).map((_, index) => {
+              const x = index % SIZE;
+              const y = Math.floor(
+                index / SIZE
+              );
+
+              const segmentIndex =
+                snake.findIndex(
+                  (segment) =>
+                    segment.x === x &&
+                    segment.y === y
+                );
+
+              const isSnake =
+                segmentIndex !== -1;
+
+              const isHead =
+                segmentIndex === 0;
+
+              const isFood =
+                food.x === x &&
+                food.y === y;
+
+              const isPower =
+                powerUp &&
+                powerUp.x === x &&
+                powerUp.y === y;
+
+              const isWall =
+                walls.some(
+                  (wall) =>
+                    wall.x === x &&
+                    wall.y === y
+                );
+
+              return (
+                <div
+                  key={index}
+                  className={`cell ${
+                    isSnake
+                      ? "snake-cell"
+                      : ""
+                  } ${
+                    isHead
+                      ? "snake-head"
+                      : ""
+                  } ${
+                    isFood
+                      ? `food-cell ${
+                          FOOD_TYPES[
+                            food.type
+                          ].className
+                        }`
+                      : ""
+                  } ${
+                    isPower
+                      ? `power-cell power-${powerUp.type}`
+                      : ""
+                  } ${
+                    isWall
+                      ? "wall-cell"
+                      : ""
+                  }`}
+                >
+                  {isSnake && (
+                    <span
+                      className="snake-body"
+                      style={{
+                        background:
+                          currentSkin.color,
+                      }}
+                    />
+                  )}
+
+                  {isHead && (
+                    <span className="snake-eyes">
+                      <i />
+                      <i />
+                    </span>
+                  )}
+
+                  {isFood && (
+                    <span>
+                      {
+                        FOOD_TYPES[
+                          food.type
+                        ].icon
+                      }
+                    </span>
+                  )}
+
+                  {isPower && (
+                    <span>
+                      {
+                        POWERUPS[
+                          powerUp.type
+                        ].icon
+                      }
+                    </span>
+                  )}
+
+                  {isWall && (
+                    <span>▦</span>
+                  )}
+                </div>
+              );
+            })}
+
+            {particles.map(
+              (particle) => (
+                <span
+                  key={particle.id}
+                  className="particle"
+                  style={{
+                    left: `${
+                      (particle.x / SIZE) *
+                      100
+                    }%`,
+                    top: `${
+                      (particle.y / SIZE) *
+                      100
+                    }%`,
+                    "--dx": particle.dx,
+                    "--dy": particle.dy,
+                  }}
+                />
+              )
+            )}
+
+            {!running &&
+              !gameOver && (
+                <div className="board-overlay">
+                  <div className="overlay-icon">
+                    🐍
+                  </div>
+
+                  <h2>
+                    NEON SNAKE
+                  </h2>
+
+                  <p>
+                    {message ||
+                      "Ready to play?"}
+                  </p>
+
+                  <button
+                    className="primary-button"
+                    onClick={startGame}
+                  >
+                    START GAME
+                  </button>
+                </div>
+              )}
+
+            {paused && running && (
+              <div className="board-overlay">
+                <div className="overlay-icon">
+                  ⏸️
+                </div>
+
+                <h2>PAUSED</h2>
+
+                <p>Take a breath.</p>
+
+                <button
+                  className="primary-button"
+                  onClick={() =>
+                    setPaused(false)
+                  }
+                >
+                  RESUME
+                </button>
+              </div>
+            )}
+
+            {gameOver && (
+              <div className="board-overlay">
+                <div className="overlay-icon">
+                  💥
+                </div>
+
+                <h2>GAME OVER</h2>
+
+                <div className="final-score">
+                  {score}
+                </div>
+
+                <p>
+                  {score >= highScore
+                    ? "🏆 New record!"
+                    : "Nice run!"}
+                </p>
+
+                <button
+                  className="primary-button"
+                  onClick={startGame}
+                >
+                  PLAY AGAIN
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="message">
+            {message}
+          </div>
+
+          <div className="mobile-controls">
+            <button
+              onPointerDown={(e) => {
+                e.preventDefault();
+                changeDirection({
+                  x: 0,
+                  y: -1,
+                });
+              }}
+            >
+              ▲
+            </button>
+
+            <div>
+              <button
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  changeDirection({
+                    x: -1,
+                    y: 0,
+                  });
+                }}
+              >
+                ◀
+              </button>
+
+              <button
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  setPaused((old) => !old);
+                }}
+              >
+                {paused ? "▶" : "Ⅱ"}
+              </button>
+
+              <button
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  changeDirection({
+                    x: 1,
+                    y: 0,
+                  });
+                }}
+              >
+                ▶
+              </button>
+            </div>
+
+            <button
+              onPointerDown={(e) => {
+                e.preventDefault();
+                changeDirection({
+                  x: 0,
+                  y: 1,
+                });
+              }}
+            >
+              ▼
+            </button>
+          </div>
+        </section>
+
+        <aside className="side-panel">
+          <div className="profile-card">
+            <div className="avatar">
+              {currentSkin.icon}
+            </div>
+
+            <div>
+              <span>PLAYER</span>
+
+              <input
+                value={playerName}
+                onChange={(e) =>
+                  setPlayerName(
+                    e.target.value
+                  )
+                }
+                maxLength={18}
+              />
+            </div>
+          </div>
+
+          <div className="panel-card">
+            <div className="panel-title">
+              GAME MODES
+            </div>
+
+            <div className="mode-grid">
+              {Object.entries(
+                MODES
+              ).map(
+                ([
+                  id,
+                  item,
+                ]) => (
+                  <button
+                    key={id}
+                    className={
+                      mode === id
+                        ? "selected"
+                        : ""
+                    }
+                    onClick={() =>
+                      setModeAndReset(id)
+                    }
+                  >
+                    <span>
+                      {item.icon}
+                    </span>
+
+                    <b>
+                      {item.name}
+                    </b>
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="daily-card">
+            <div className="daily-top">
+              <span>
+                DAILY CHALLENGE
+              </span>
+
+              <span>🔥</span>
+            </div>
+
+            <h3>
+              Score{" "}
+              {dailyChallenge.target}
+            </h3>
+
+            <div className="progress">
+              <div
+                style={{
+                  width: `${Math.min(
+                    100,
+                    (challengeProgress /
+                      dailyChallenge.target) *
+                      100
+                  )}%`,
+                }}
+              />
+            </div>
+
+            <small>
+              Reward:{" "}
+              {dailyChallenge.reward}
+            </small>
+          </div>
+        </aside>
+      </div>
+    );
+  }
+
+  function renderLeaderboard() {
+    return (
+      <div className="page">
+        <div className="page-heading">
+          <span>🏆</span>
+          <div>
+            <div className="eyebrow">
+              LOCAL RECORDS
+            </div>
+            <h1>Leaderboard</h1>
+          </div>
+        </div>
+
+        <div className="leaderboard-list">
+          {leaderboard.length === 0 ? (
+            <div className="empty-state">
+              <div>🏆</div>
+              <h2>No scores yet</h2>
+              <p>
+                Play a game and claim the
+                first spot.
+              </p>
+            </div>
+          ) : (
+            leaderboard.map(
+              (entry, index) => (
+                <div
+                  className="leaderboard-row"
+                  key={`${entry.date}-${index}`}
+                >
+                  <div className="rank">
+                    #{index + 1}
+                  </div>
+
+                  <div className="leader-player">
+                    <div className="mini-avatar">
+                      🐍
+                    </div>
+
+                    <div>
+                      <b>
+                        {entry.name}
+                      </b>
+                      <small>
+                        {entry.mode}
+                      </small>
+                    </div>
+                  </div>
+
+                  <strong>
+                    {entry.score}
+                  </strong>
+                </div>
+              )
+            )
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderAchievements() {
+    return (
+      <div className="page">
+        <div className="page-heading">
+          <span>🏆</span>
+
+          <div>
+            <div className="eyebrow">
+              PROGRESSION
+            </div>
+
+            <h1>Achievements</h1>
+          </div>
+        </div>
+
+        <div className="achievement-grid">
+          {ACHIEVEMENTS.map(
+            (achievement) => {
+              const unlocked =
+                achievements.includes(
+                  achievement.id
+                );
+
+              return (
+                <div
+                  className={`achievement-card ${
+                    unlocked
+                      ? "unlocked"
+                      : ""
+                  }`}
+                  key={achievement.id}
+                >
+                  <div className="achievement-icon">
+                    {unlocked
+                      ? achievement.icon
+                      : "🔒"}
+                  </div>
+
+                  <div>
+                    <h3>
+                      {achievement.name}
+                    </h3>
+
+                    <p>
+                      {
+                        achievement.description
+                      }
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderStats() {
+    return (
+      <div className="page">
+        <div className="page-heading">
+          <span>📊</span>
+
+          <div>
+            <div className="eyebrow">
+              YOUR PERFORMANCE
+            </div>
+
+            <h1>Statistics</h1>
+          </div>
+        </div>
+
+        <div className="stats-grid">
+          <div className="big-stat">
+            <span>BEST SCORE</span>
+            <strong>
+              {stats.bestScore}
+            </strong>
+          </div>
+
+          <div className="big-stat">
+            <span>GAMES PLAYED</span>
+            <strong>
+              {stats.games}
+            </strong>
+          </div>
+
+          <div className="big-stat">
+            <span>TOTAL SCORE</span>
+            <strong>
+              {stats.totalScore}
+            </strong>
+          </div>
+
+          <div className="big-stat">
+            <span>FOOD EATEN</span>
+            <strong>
+              {stats.food}
+            </strong>
+          </div>
+
+          <div className="big-stat">
+            <span>BEST COMBO</span>
+            <strong>
+              {stats.bestCombo}x
+            </strong>
+          </div>
+
+          <div className="big-stat">
+            <span>LONGEST SNAKE</span>
+            <strong>
+              {stats.bestLength}
+            </strong>
+          </div>
+
+          <div className="big-stat">
+            <span>GOLDEN FOOD</span>
+            <strong>
+              {stats.goldenFood}
+            </strong>
+          </div>
+
+          <div className="big-stat">
+            <span>POWER-UPS</span>
+            <strong>
+              {stats.powerUps}
+            </strong>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderSettings() {
+    return (
+      <div className="page">
+        <div className="page-heading">
+          <span>⚙️</span>
+
+          <div>
+            <div className="eyebrow">
+              CUSTOMIZE
+            </div>
+
+            <h1>Settings</h1>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h2>🎨 Themes</h2>
+
+          <div className="option-grid">
+            {Object.entries(
+              THEMES
+            ).map(
+              ([id, item]) => (
+                <button
+                  key={id}
+                  className={`option-card ${
+                    theme === id
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setTheme(id)
+                  }
+                >
+                  <span
+                    className="theme-preview"
+                    style={{
+                      background: item.accent,
+                    }}
+                  />
+                  <b>
+                    {item.name}
+                  </b>
+                </button>
+              )
+            )}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h2>🐍 Snake Skins</h2>
+
+          <div className="option-grid">
+            {Object.entries(
+              SKINS
+            ).map(
+              ([id, item]) => (
+                <button
+                  key={id}
+                  className={`option-card ${
+                    skin === id
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setSkin(id)
+                  }
+                >
+                  <span className="skin-preview">
+                    {item.icon}
+                  </span>
+
+                  <b>
+                    {item.name}
+                  </b>
+                </button>
+              )
+            )}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h2>🌌 Arenas</h2>
+
+          <div className="option-grid">
+            {Object.entries(
+              ARENAS
+            ).map(
+              ([id, item]) => (
+                <button
+                  key={id}
+                  className={`option-card ${
+                    arena === id
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setArena(id)
+                  }
+                >
+                  <span className="arena-preview">
+                    {item.icon}
+                  </span>
+
+                  <b>
+                    {item.name}
+                  </b>
+                </button>
+              )
+            )}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h2>🔊 Sound</h2>
+
+          <div className="sound-row">
+            <button
+              className={`toggle ${
+                soundOn
+                  ? "on"
+                  : ""
+              }`}
+              onClick={() =>
+                setSoundOn(
+                  (old) => !old
+                )
+              }
+            >
+              <span />
+            </button>
+
+            <span>
+              {soundOn
+                ? "Sound enabled"
+                : "Sound disabled"}
+            </span>
+
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={volume}
+              onChange={(e) =>
+                setVolume(
+                  Number(
+                    e.target.value
+                  )
+                )
+              }
+              disabled={!soundOn}
+            />
+          </div>
+        </div>
+
+        <div className="danger-section">
+          <h2>Reset Progress</h2>
+
+          <p>
+            This removes your local score,
+            achievements and statistics.
+          </p>
+
+          <button
+            className="danger-button"
+            onClick={resetProgress}
+          >
+            Reset Everything
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div
-      className={`app ${currentTheme.className}`}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      className={`app theme-${theme}`}
+      style={{
+        "--accent":
+          currentTheme.accent,
+        "--accent2":
+          currentTheme.accent2,
+        "--theme-bg":
+          currentTheme.bg,
+      }}
     >
       <header className="topbar">
-        <div>
-          <div className="logo">
-            <span>🐍</span>
-            <div>
-              <h1>NEON SNAKE</h1>
-              <p>ULTIMATE EDITION</p>
-            </div>
+        <div className="brand">
+          <div className="brand-icon">
+            🐍
+          </div>
+
+          <div>
+            <strong>
+              NEON SNAKE
+            </strong>
+
+            <span>
+              ARCADE EDITION
+            </span>
           </div>
         </div>
 
-        <div className="top-actions">
-          <button
-            className="icon-button"
-            onClick={() => setSoundOn((current) => !current)}
-          >
-            {soundOn ? '🔊' : '🔇'}
-          </button>
-
-          <button
-            className="icon-button"
-            onClick={() => setScreen('settings')}
-          >
-            ⚙️
-          </button>
+        <div className="top-status">
+          <span className="status-dot" />
+          SYSTEM ONLINE
         </div>
       </header>
 
-      <main className="main-content">
-        {screen === 'game' && (
-          <>
-            <section className="game-layout">
-              <aside className="side-panel">
-                <div className="profile-card">
-                  <div className="avatar">🎮</div>
+      <main>
+        {screen === "game" &&
+          renderGame()}
 
-                  <div>
-                    <small>PLAYER</small>
+        {screen === "leaderboard" &&
+          renderLeaderboard()}
 
-                    <input
-                      value={playerName}
-                      onChange={(event) =>
-                        setPlayerName(event.target.value)
-                      }
-                      maxLength={16}
-                      aria-label="Player name"
-                    />
-                  </div>
-                </div>
+        {screen === "achievements" &&
+          renderAchievements()}
 
-                <div className="stat-grid">
-                  <div className="stat-card">
-                    <span>🏆</span>
-                    <small>HIGH SCORE</small>
-                    <strong>{highScore}</strong>
-                  </div>
+        {screen === "stats" &&
+          renderStats()}
 
-                  <div className="stat-card">
-                    <span>⭐</span>
-                    <small>SCORE</small>
-                    <strong>{score}</strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>⚡</span>
-                    <small>COMBO</small>
-                    <strong>x{combo}</strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>🚀</span>
-                    <small>LEVEL</small>
-                    <strong>{level}</strong>
-                  </div>
-                </div>
-
-                <div className="mode-card">
-                  <div className="section-title">
-                    <span>🎮 GAME MODE</span>
-                  </div>
-
-                  <div className="mode-list">
-                    {Object.entries(MODES).map(
-                      ([key, item]) => (
-                        <button
-                          key={key}
-                          className={
-                            mode === key
-                              ? 'mode-button active'
-                              : 'mode-button'
-                          }
-                          onClick={() => {
-                            if (!gameStarted) {
-                              setMode(key)
-                              resetGame()
-                            }
-                          }}
-                        >
-                          <span>{item.icon}</span>
-                          <div>
-                            <strong>{item.name}</strong>
-                            <small>{item.description}</small>
-                          </div>
-                        </button>
-                      )
-                    )}
-                  </div>
-                </div>
-              </aside>
-
-              <section className="game-center">
-                <div className="game-header">
-                  <div>
-                    <span className="mode-label">
-                      {MODES[mode].icon} {MODES[mode].name}
-                    </span>
-
-                    <h2>
-                      {mode === 'time'
-                        ? `${timeLeft}s remaining`
-                        : message || 'Keep going!'}
-                    </h2>
-                  </div>
-
-                  <div className="level-pill">
-                    LVL {level}
-                  </div>
-                </div>
-
-                <div
-                  className="board-wrapper"
-                  onTouchStart={(event) => {
-                    event.stopPropagation()
-                    handleTouchStart(event)
-                  }}
-                  onTouchEnd={(event) => {
-                    event.stopPropagation()
-                    handleTouchEnd(event)
-                  }}
-                >
-                  <div className="board">
-                    {cells.map((cell) => {
-                      const snakeIndex =
-                        snake.findIndex((segment) =>
-                          isSamePosition(segment, cell)
-                        )
-
-                      const isHead = snakeIndex === 0
-
-                      const isFood =
-                        isSamePosition(food, cell)
-
-                      const isPowerUp =
-                        powerUp &&
-                        isSamePosition(powerUp, cell)
-
-                      const isWall =
-                        walls.some((wall) =>
-                          isSamePosition(wall, cell)
-                        )
-
-                      let className = 'cell'
-
-                      if (snakeIndex !== -1) {
-                        className += ' snake-cell'
-
-                        if (isHead) {
-                          className += ' snake-head'
-                        }
-                      }
-
-                      if (isFood) {
-                        className += ` food-cell ${
-                          FOOD_TYPES[food.type].className
-                        }`
-                      }
-
-                      if (isPowerUp) {
-                        className += ' power-cell'
-                      }
-
-                      if (isWall) {
-                        className += ' wall-cell'
-                      }
-
-                      return (
-                        <div
-                          key={`${cell.x}-${cell.y}`}
-                          className={className}
-                        >
-                          {isHead && '◆'}
-
-                          {isFood &&
-                            FOOD_TYPES[food.type].symbol}
-
-                          {isPowerUp &&
-                            POWER_UPS[powerUp.type].symbol}
-
-                          {isWall && '▰'}
-                        </div>
-                      )
-                    })}
-
-                    {!gameStarted && !gameOver && (
-                      <div className="overlay">
-                        <div className="overlay-card">
-                          <div className="big-icon">🐍</div>
-
-                          <h2>NEON SNAKE</h2>
-
-                          <p>
-                            Eat. Grow. Survive. Break the
-                            record.
-                          </p>
-
-                          <button
-                            className="primary-button"
-                            onClick={startGame}
-                          >
-                            ▶ START GAME
-                          </button>
-
-                          <small>
-                            Arrow Keys / WASD / Swipe
-                          </small>
-                        </div>
-                      </div>
-                    )}
-
-                    {paused && (
-                      <div className="overlay">
-                        <div className="overlay-card">
-                          <div className="big-icon">⏸️</div>
-
-                          <h2>PAUSED</h2>
-
-                          <p>Your snake is waiting.</p>
-
-                          <button
-                            className="primary-button"
-                            onClick={() =>
-                              setPaused(false)
-                            }
-                          >
-                            ▶ RESUME
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {gameOver && (
-                      <div className="overlay">
-                        <div className="overlay-card">
-                          <div className="big-icon">💥</div>
-
-                          <h2>GAME OVER</h2>
-
-                          <p>
-                            Final Score
-                          </p>
-
-                          <div className="final-score">
-                            {score}
-                          </div>
-
-                          {score >= highScore && (
-                            <div className="new-record">
-                              🏆 NEW RECORD!
-                            </div>
-                          )}
-
-                          <button
-                            className="primary-button"
-                            onClick={resetGame}
-                          >
-                            🔄 PLAY AGAIN
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="power-status">
-                  {activePowerUp ? (
-                    <>
-                      <span>
-                        {POWER_UPS[activePowerUp].symbol}
-                      </span>
-
-                      <strong>
-                        {POWER_UPS[activePowerUp].name}
-                      </strong>
-
-                      <div className="power-bar">
-                        <div
-                          style={{
-                            width: `${
-                              (powerUpTime /
-                                POWER_UPS[activePowerUp]
-                                  .duration) *
-                              100
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <span className="power-hint">
-                      Collect 🛡️ ⏱️ ✕2 power-ups
-                    </span>
-                  )}
-                </div>
-
-                <div className="mobile-controller">
-                  <button
-                    onPointerDown={(event) =>
-                      touchDirection(event, {
-                        x: 0,
-                        y: -1,
-                      })
-                    }
-                    onTouchStart={(event) =>
-                      touchDirection(event, {
-                        x: 0,
-                        y: -1,
-                      })
-                    }
-                  >
-                    ▲
-                  </button>
-
-                  <div>
-                    <button
-                      onPointerDown={(event) =>
-                        touchDirection(event, {
-                          x: -1,
-                          y: 0,
-                        })
-                      }
-                      onTouchStart={(event) =>
-                        touchDirection(event, {
-                          x: -1,
-                          y: 0,
-                        })
-                      }
-                    >
-                      ◀
-                    </button>
-
-                    <button
-                      onPointerDown={(event) =>
-                        touchDirection(event, {
-                          x: 0,
-                          y: 1,
-                        })
-                      }
-                      onTouchStart={(event) =>
-                        touchDirection(event, {
-                          x: 0,
-                          y: 1,
-                        })
-                      }
-                    >
-                      ▼
-                    </button>
-
-                    <button
-                      onPointerDown={(event) =>
-                        touchDirection(event, {
-                          x: 1,
-                          y: 0,
-                        })
-                      }
-                      onTouchStart={(event) =>
-                        touchDirection(event, {
-                          x: 1,
-                          y: 0,
-                        })
-                      }
-                    >
-                      ▶
-                    </button>
-                  </div>
-                </div>
-
-                <div className="game-buttons">
-                  {gameStarted && !gameOver && (
-                    <button
-                      className="secondary-button"
-                      onClick={() =>
-                        setPaused((current) => !current)
-                      }
-                    >
-                      {paused ? '▶ RESUME' : '⏸ PAUSE'}
-                    </button>
-                  )}
-
-                  <button
-                    className="secondary-button"
-                    onClick={resetGame}
-                  >
-                    🔄 RESET
-                  </button>
-                </div>
-              </section>
-            </section>
-          </>
-        )}
-
-        {screen === 'leaderboard' && (
-          <section className="page-section">
-            <div className="page-heading">
-              <span>🏆</span>
-
-              <div>
-                <h2>Leaderboard</h2>
-                <p>Your best local scores</p>
-              </div>
-            </div>
-
-            <div className="leaderboard">
-              {leaderboard.length === 0 ? (
-                <div className="empty-state">
-                  🐍 No scores yet. Be the first!
-                </div>
-              ) : (
-                leaderboard.map((entry, index) => (
-                  <div
-                    className="leaderboard-row"
-                    key={`${entry.name}-${entry.score}-${index}`}
-                  >
-                    <div className="rank">
-                      {index === 0
-                        ? '🥇'
-                        : index === 1
-                          ? '🥈'
-                          : index === 2
-                            ? '🥉'
-                            : `#${index + 1}`}
-                    </div>
-
-                    <div className="leader-player">
-                      <strong>{entry.name}</strong>
-                      <small>
-                        {MODES[entry.mode]?.name ||
-                          entry.mode}{' '}
-                        • {entry.date}
-                      </small>
-                    </div>
-
-                    <strong className="leader-score">
-                      {entry.score}
-                    </strong>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {leaderboard.length > 0 && (
-              <button
-                className="danger-button"
-                onClick={() => {
-                  setLeaderboard([])
-                  save('neon-leaderboard', [])
-                }}
-              >
-                🗑 Clear Leaderboard
-              </button>
-            )}
-          </section>
-        )}
-
-        {screen === 'achievements' && (
-          <section className="page-section">
-            <div className="page-heading">
-              <span>🏅</span>
-
-              <div>
-                <h2>Achievements</h2>
-
-                <p>
-                  {achievements.length}/
-                  {ACHIEVEMENT_LIST.length} unlocked
-                </p>
-              </div>
-            </div>
-
-            <div className="achievement-grid">
-              {ACHIEVEMENT_LIST.map((achievement) => {
-                const unlocked = achievements.includes(
-                  achievement.id
-                )
-
-                return (
-                  <div
-                    className={
-                      unlocked
-                        ? 'achievement unlocked'
-                        : 'achievement'
-                    }
-                    key={achievement.id}
-                  >
-                    <div className="achievement-icon">
-                      {unlocked
-                        ? achievement.icon
-                        : '🔒'}
-                    </div>
-
-                    <div>
-                      <strong>
-                        {achievement.title}
-                      </strong>
-
-                      <p>
-                        {achievement.description}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {screen === 'stats' && (
-          <section className="page-section">
-            <div className="page-heading">
-              <span>📊</span>
-
-              <div>
-                <h2>Statistics</h2>
-                <p>Your Neon Snake journey</p>
-              </div>
-            </div>
-
-            <div className="big-stats">
-              <div>
-                <span>🎮</span>
-                <small>GAMES</small>
-                <strong>{stats.games}</strong>
-              </div>
-
-              <div>
-                <span>🍎</span>
-                <small>FOOD EATEN</small>
-                <strong>{stats.food}</strong>
-              </div>
-
-              <div>
-                <span>⚡</span>
-                <small>BEST COMBO</small>
-                <strong>x{stats.bestCombo}</strong>
-              </div>
-
-              <div>
-                <span>🐍</span>
-                <small>LONGEST SNAKE</small>
-                <strong>{stats.longestSnake}</strong>
-              </div>
-
-              <div>
-                <span>👑</span>
-                <small>GOLDEN FOOD</small>
-                <strong>{stats.goldenFood}</strong>
-              </div>
-
-              <div>
-                <span>🛡️</span>
-                <small>POWER-UPS</small>
-                <strong>{stats.powerUps}</strong>
-              </div>
-
-              <div>
-                <span>⭐</span>
-                <small>TOTAL SCORE</small>
-                <strong>{stats.totalScore}</strong>
-              </div>
-
-              <div>
-                <span>🏆</span>
-                <small>HIGH SCORE</small>
-                <strong>{highScore}</strong>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {screen === 'settings' && (
-          <section className="page-section">
-            <div className="page-heading">
-              <span>⚙️</span>
-
-              <div>
-                <h2>Settings</h2>
-                <p>Customize your game</p>
-              </div>
-            </div>
-
-            <div className="settings-card">
-              <div className="setting-row">
-                <div>
-                  <strong>🔊 Sound Effects</strong>
-                  <p>Game sounds and achievement sounds</p>
-                </div>
-
-                <button
-                  className={
-                    soundOn
-                      ? 'toggle active'
-                      : 'toggle'
-                  }
-                  onClick={() =>
-                    setSoundOn((current) => !current)
-                  }
-                >
-                  {soundOn ? 'ON' : 'OFF'}
-                </button>
-              </div>
-
-              <div className="setting-row">
-                <div>
-                  <strong>👤 Player Name</strong>
-                  <p>Name shown on the leaderboard</p>
-                </div>
-
-                <input
-                  className="settings-input"
-                  value={playerName}
-                  onChange={(event) =>
-                    setPlayerName(event.target.value)
-                  }
-                  maxLength={16}
-                />
-              </div>
-
-              <div>
-                <strong>🎨 Theme</strong>
-
-                <div className="theme-grid">
-                  {Object.entries(THEMES).map(
-                    ([key, item]) => (
-                      <button
-                        key={key}
-                        className={
-                          theme === key
-                            ? 'theme-button selected'
-                            : 'theme-button'
-                        }
-                        onClick={() => setTheme(key)}
-                      >
-                        <span>{item.icon}</span>
-                        {item.name}
-                      </button>
-                    )
-                  )}
-                </div>
-              </div>
-
-              <button
-                className="danger-button"
-                onClick={() => {
-                  localStorage.clear()
-
-                  window.location.reload()
-                }}
-              >
-                🗑 RESET ALL SAVED DATA
-              </button>
-            </div>
-          </section>
-        )}
+        {screen === "settings" &&
+          renderSettings()}
       </main>
 
       <nav className="bottom-nav">
         <button
-          className={screen === 'game' ? 'active' : ''}
-          onClick={() => setScreen('game')}
+          className={
+            screen === "game"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setScreen("game")
+          }
         >
           <span>🎮</span>
-          <small>Game</small>
+          Game
         </button>
 
         <button
           className={
-            screen === 'leaderboard' ? 'active' : ''
+            screen === "leaderboard"
+              ? "active"
+              : ""
           }
-          onClick={() => setScreen('leaderboard')}
+          onClick={() =>
+            setScreen(
+              "leaderboard"
+            )
+          }
         >
           <span>🏆</span>
-          <small>Ranks</small>
+          Scores
         </button>
 
         <button
           className={
-            screen === 'achievements' ? 'active' : ''
+            screen === "achievements"
+              ? "active"
+              : ""
           }
-          onClick={() => setScreen('achievements')}
+          onClick={() =>
+            setScreen(
+              "achievements"
+            )
+          }
         >
-          <span>🏅</span>
-          <small>Badges</small>
+          <span>🎖️</span>
+          Awards
         </button>
 
         <button
-          className={screen === 'stats' ? 'active' : ''}
-          onClick={() => setScreen('stats')}
+          className={
+            screen === "stats"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setScreen("stats")
+          }
         >
           <span>📊</span>
-          <small>Stats</small>
+          Stats
         </button>
 
         <button
-          className={screen === 'settings' ? 'active' : ''}
-          onClick={() => setScreen('settings')}
+          className={
+            screen === "settings"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setScreen("settings")
+          }
         >
           <span>⚙️</span>
-          <small>Settings</small>
+          Settings
         </button>
       </nav>
 
       <footer>
-        <span>🐍 NEON SNAKE</span>
-        <span>v1.0</span>
-        <span>Built with React ⚡</span>
+        NEON SNAKE • PHASE 1–4 • v1.0
       </footer>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
