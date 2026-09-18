@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
@@ -38,45 +39,24 @@ const createFood = (snake) => {
     return { x: 0, y: 0 }
   }
 
-  return emptyCells[
-    Math.floor(Math.random() * emptyCells.length)
-  ]
+  return emptyCells[Math.floor(Math.random() * emptyCells.length)]
 }
 
 function App() {
   const [snake, setSnake] = useState(INITIAL_SNAKE)
-  const [food, setFood] = useState(() =>
-    createFood(INITIAL_SNAKE)
-  )
-
-  const [direction, setDirection] =
-    useState(INITIAL_DIRECTION)
-
-  const [nextDirection, setNextDirection] =
-    useState(INITIAL_DIRECTION)
-
+  const [food, setFood] = useState(() => createFood(INITIAL_SNAKE))
+  const [direction, setDirection] = useState(INITIAL_DIRECTION)
+  const [nextDirection, setNextDirection] = useState(INITIAL_DIRECTION)
   const [score, setScore] = useState(0)
-
-  const [highScore, setHighScore] =
-    useState(getSavedHighScore)
-
+  const [highScore, setHighScore] = useState(getSavedHighScore)
   const [level, setLevel] = useState(1)
-
   const [started, setStarted] = useState(false)
-
   const [paused, setPaused] = useState(false)
-
   const [gameOver, setGameOver] = useState(false)
-
   const [newRecord, setNewRecord] = useState(false)
-
   const [soundEnabled, setSoundEnabled] = useState(true)
 
   const audioContextRef = useRef(null)
-
-  /* =========================================
-     SOUND
-  ========================================= */
 
   const playSound = useCallback(
     (type) => {
@@ -84,11 +64,9 @@ function App() {
 
       try {
         if (!audioContextRef.current) {
-          audioContextRef.current =
-            new (
-              window.AudioContext ||
-              window.webkitAudioContext
-            )()
+          audioContextRef.current = new (
+            window.AudioContext || window.webkitAudioContext
+          )()
         }
 
         const audio = audioContextRef.current
@@ -106,68 +84,34 @@ function App() {
         const now = audio.currentTime
 
         if (type === 'eat') {
-          oscillator.frequency.setValueAtTime(
-            500,
-            now
-          )
-
-          oscillator.frequency.exponentialRampToValueAtTime(
-            900,
-            now + 0.08
-          )
+          oscillator.frequency.setValueAtTime(500, now)
+          oscillator.frequency.exponentialRampToValueAtTime(900, now + 0.08)
 
           gain.gain.setValueAtTime(0.08, now)
-          gain.gain.exponentialRampToValueAtTime(
-            0.001,
-            now + 0.12
-          )
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
 
           oscillator.start(now)
           oscillator.stop(now + 0.12)
         }
 
         if (type === 'gameover') {
-          oscillator.frequency.setValueAtTime(
-            300,
-            now
-          )
-
-          oscillator.frequency.exponentialRampToValueAtTime(
-            100,
-            now + 0.3
-          )
+          oscillator.frequency.setValueAtTime(300, now)
+          oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.3)
 
           gain.gain.setValueAtTime(0.1, now)
-          gain.gain.exponentialRampToValueAtTime(
-            0.001,
-            now + 0.35
-          )
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35)
 
           oscillator.start(now)
           oscillator.stop(now + 0.35)
         }
 
         if (type === 'level') {
-          oscillator.frequency.setValueAtTime(
-            500,
-            now
-          )
-
-          oscillator.frequency.setValueAtTime(
-            700,
-            now + 0.08
-          )
-
-          oscillator.frequency.setValueAtTime(
-            1000,
-            now + 0.16
-          )
+          oscillator.frequency.setValueAtTime(500, now)
+          oscillator.frequency.setValueAtTime(700, now + 0.08)
+          oscillator.frequency.setValueAtTime(1000, now + 0.16)
 
           gain.gain.setValueAtTime(0.08, now)
-          gain.gain.exponentialRampToValueAtTime(
-            0.001,
-            now + 0.25
-          )
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25)
 
           oscillator.start(now)
           oscillator.stop(now + 0.25)
@@ -179,19 +123,11 @@ function App() {
     [soundEnabled]
   )
 
-  /* =========================================
-     START GAME
-  ========================================= */
-
   const startGame = () => {
     setStarted(true)
     setPaused(false)
     setGameOver(false)
   }
-
-  /* =========================================
-     RESTART
-  ========================================= */
 
   const restartGame = useCallback(() => {
     const newSnake = [
@@ -200,29 +136,19 @@ function App() {
       { x: 8, y: 10 },
     ]
 
-    const newDirection = {
-      x: 1,
-      y: 0,
-    }
+    const newDirection = { x: 1, y: 0 }
 
     setSnake(newSnake)
     setFood(createFood(newSnake))
-
     setDirection(newDirection)
     setNextDirection(newDirection)
-
     setScore(0)
     setLevel(1)
-
     setStarted(true)
     setPaused(false)
     setGameOver(false)
     setNewRecord(false)
   }, [])
-
-  /* =========================================
-     CHANGE DIRECTION
-  ========================================= */
 
   const changeDirection = useCallback(
     (newDirection) => {
@@ -243,60 +169,28 @@ function App() {
     [direction, gameOver, started]
   )
 
-  /* =========================================
-     KEYBOARD
-  ========================================= */
-
   useEffect(() => {
     const handleKeyDown = (event) => {
       const key = event.key.toLowerCase()
 
-      if (
-        key === 'arrowup' ||
-        key === 'w'
-      ) {
+      if (key === 'arrowup' || key === 'w') {
         event.preventDefault()
-
-        changeDirection({
-          x: 0,
-          y: -1,
-        })
+        changeDirection({ x: 0, y: -1 })
       }
 
-      if (
-        key === 'arrowdown' ||
-        key === 's'
-      ) {
+      if (key === 'arrowdown' || key === 's') {
         event.preventDefault()
-
-        changeDirection({
-          x: 0,
-          y: 1,
-        })
+        changeDirection({ x: 0, y: 1 })
       }
 
-      if (
-        key === 'arrowleft' ||
-        key === 'a'
-      ) {
+      if (key === 'arrowleft' || key === 'a') {
         event.preventDefault()
-
-        changeDirection({
-          x: -1,
-          y: 0,
-        })
+        changeDirection({ x: -1, y: 0 })
       }
 
-      if (
-        key === 'arrowright' ||
-        key === 'd'
-      ) {
+      if (key === 'arrowright' || key === 'd') {
         event.preventDefault()
-
-        changeDirection({
-          x: 1,
-          y: 0,
-        })
+        changeDirection({ x: 1, y: 0 })
       }
 
       if (key === ' ') {
@@ -312,31 +206,15 @@ function App() {
       }
     }
 
-    window.addEventListener(
-      'keydown',
-      handleKeyDown
-    )
+    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      window.removeEventListener(
-        'keydown',
-        handleKeyDown
-      )
+      window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [
-    changeDirection,
-    restartGame,
-    started,
-    gameOver,
-  ])
-
-  /* =========================================
-     LEVEL
-  ========================================= */
+  }, [changeDirection, restartGame, started, gameOver])
 
   useEffect(() => {
-    const newLevel =
-      Math.floor(score / 50) + 1
+    const newLevel = Math.floor(score / 50) + 1
 
     if (newLevel > level) {
       playSound('level')
@@ -345,23 +223,10 @@ function App() {
     setLevel(newLevel)
   }, [score, level, playSound])
 
-  /* =========================================
-     GAME LOOP
-  ========================================= */
-
   useEffect(() => {
-    if (
-      !started ||
-      paused ||
-      gameOver
-    ) {
-      return
-    }
+    if (!started || paused || gameOver) return
 
-    const speed = Math.max(
-      55,
-      150 - (level - 1) * 12
-    )
+    const speed = Math.max(55, 150 - (level - 1) * 12)
 
     const timer = setInterval(() => {
       setSnake((currentSnake) => {
@@ -372,8 +237,6 @@ function App() {
           y: head.y + nextDirection.y,
         }
 
-        /* WALL COLLISION */
-
         if (
           newHead.x < 0 ||
           newHead.x >= GRID_SIZE ||
@@ -382,21 +245,12 @@ function App() {
         ) {
           setGameOver(true)
           playSound('gameover')
-
           return currentSnake
         }
 
         const ateFood =
           newHead.x === food.x &&
           newHead.y === food.y
-
-        /*
-          If the snake is not eating,
-          its tail will move away.
-          Therefore we don't need to
-          consider the final tail cell
-          for collision.
-        */
 
         const bodyToCheck = ateFood
           ? currentSnake
@@ -411,20 +265,15 @@ function App() {
         if (hitSelf) {
           setGameOver(true)
           playSound('gameover')
-
           return currentSnake
         }
 
-        const newSnake = [
-          newHead,
-          ...currentSnake,
-        ]
+        const newSnake = [newHead, ...currentSnake]
 
         if (ateFood) {
           const newScore = score + 10
 
           setScore(newScore)
-
           playSound('eat')
 
           if (newScore > highScore) {
@@ -447,16 +296,13 @@ function App() {
         }
 
         newSnake.pop()
-
         return newSnake
       })
 
       setDirection(nextDirection)
     }, speed)
 
-    return () => {
-      clearInterval(timer)
-    }
+    return () => clearInterval(timer)
   }, [
     started,
     paused,
@@ -469,10 +315,6 @@ function App() {
     playSound,
   ])
 
-  /* =========================================
-     GRID
-  ========================================= */
-
   const cells = []
 
   for (let y = 0; y < GRID_SIZE; y++) {
@@ -484,7 +326,6 @@ function App() {
       )
 
       const isSnake = snakeIndex !== -1
-
       const isHead = snakeIndex === 0
 
       const isFood =
@@ -519,25 +360,25 @@ function App() {
     }
   }
 
-  /* =========================================
-     UI
-  ========================================= */
-
   return (
     <main className="game">
 
-      {/* HEADER */}
+      <div className="ambient ambient-one" />
+      <div className="ambient ambient-two" />
 
       <header className="game-header">
 
         <div className="brand">
-          <p className="eyebrow">
-            NEON ARCADE
-          </p>
+          <p className="eyebrow">NEON ARCADE</p>
 
           <h1>
-            <span>🐍</span> Neon Snake
+            <span className="brand-snake">🐍</span>
+            NEON SNAKE
           </h1>
+
+          <p className="tagline">
+            Classic arcade energy. Neon era.
+          </p>
         </div>
 
         <div className="header-actions">
@@ -545,9 +386,7 @@ function App() {
           <button
             className="icon-button"
             onClick={() =>
-              setSoundEnabled(
-                (value) => !value
-              )
+              setSoundEnabled((value) => !value)
             }
             aria-label="Toggle sound"
           >
@@ -562,8 +401,6 @@ function App() {
         </div>
 
       </header>
-
-      {/* STATS */}
 
       <section className="stats">
 
@@ -584,32 +421,33 @@ function App() {
 
       </section>
 
-      {/* GAME */}
-
       <section className="game-board">
 
-        <div className="snake-board">
-          {cells}
-        </div>
+        <div className="board-frame">
 
-        {/* START */}
+          <div className="board-label">
+            <span className="status-dot" />
+            SYSTEM ONLINE
+          </div>
+
+          <div className="snake-board">
+            {cells}
+          </div>
+
+        </div>
 
         {!started && !gameOver && (
           <div className="game-overlay">
 
             <div className="overlay-card">
 
-              <div className="big-icon">
-                🐍
-              </div>
+              <div className="big-icon">🐍</div>
 
               <p className="mini-title">
                 WELCOME TO
               </p>
 
-              <h2>
-                NEON SNAKE
-              </h2>
+              <h2>NEON SNAKE</h2>
 
               <p>
                 Eat the glowing food.
@@ -621,12 +459,12 @@ function App() {
                 className="primary-button"
                 onClick={startGame}
               >
+                <span>▶</span>
                 START GAME
               </button>
 
               <div className="start-hint">
-                <span>⌨️</span>
-                Arrow Keys / WASD
+                ⌨️ Arrow Keys / WASD
               </div>
 
             </div>
@@ -634,24 +472,18 @@ function App() {
           </div>
         )}
 
-        {/* PAUSE */}
-
         {paused && !gameOver && (
           <div className="game-overlay">
 
             <div className="overlay-card">
 
-              <div className="big-icon">
-                ⏸️
-              </div>
+              <div className="big-icon">⏸️</div>
 
               <p className="mini-title">
                 GAME PAUSED
               </p>
 
-              <h2>
-                TAKE A BREATH
-              </h2>
+              <h2>TAKE A BREATH</h2>
 
               <p>
                 Your snake is waiting.
@@ -661,11 +493,9 @@ function App() {
 
               <button
                 className="primary-button"
-                onClick={() =>
-                  setPaused(false)
-                }
+                onClick={() => setPaused(false)}
               >
-                CONTINUE
+                ▶ CONTINUE
               </button>
 
             </div>
@@ -673,24 +503,18 @@ function App() {
           </div>
         )}
 
-        {/* GAME OVER */}
-
         {gameOver && (
           <div className="game-overlay">
 
             <div className="overlay-card">
 
-              <div className="big-icon">
-                💥
-              </div>
+              <div className="big-icon">💥</div>
 
               <p className="mini-title">
                 RUN COMPLETE
               </p>
 
-              <h2>
-                GAME OVER
-              </h2>
+              <h2>GAME OVER</h2>
 
               {newRecord && (
                 <div className="record-badge">
@@ -703,20 +527,15 @@ function App() {
               </div>
 
               <div className="result-info">
-                <span>
-                  LEVEL {level}
-                </span>
-
-                <span>
-                  LENGTH {snake.length}
-                </span>
+                <span>LEVEL {level}</span>
+                <span>LENGTH {snake.length}</span>
               </div>
 
               <button
                 className="primary-button"
                 onClick={restartGame}
               >
-                PLAY AGAIN
+                🔄 PLAY AGAIN
               </button>
 
             </div>
@@ -726,16 +545,11 @@ function App() {
 
       </section>
 
-      {/* MOBILE CONTROLS */}
-
       <section className="mobile-controls">
 
         <button
           onClick={() =>
-            changeDirection({
-              x: 0,
-              y: -1,
-            })
+            changeDirection({ x: 0, y: -1 })
           }
         >
           ▲
@@ -745,10 +559,7 @@ function App() {
 
           <button
             onClick={() =>
-              changeDirection({
-                x: -1,
-                y: 0,
-              })
+              changeDirection({ x: -1, y: 0 })
             }
           >
             ◀
@@ -756,9 +567,7 @@ function App() {
 
           <button
             onClick={() =>
-              setPaused(
-                (value) => !value
-              )
+              setPaused((value) => !value)
             }
           >
             {paused ? '▶' : 'Ⅱ'}
@@ -766,10 +575,7 @@ function App() {
 
           <button
             onClick={() =>
-              changeDirection({
-                x: 1,
-                y: 0,
-              })
+              changeDirection({ x: 1, y: 0 })
             }
           >
             ▶
@@ -779,10 +585,7 @@ function App() {
 
         <button
           onClick={() =>
-            changeDirection({
-              x: 0,
-              y: 1,
-            })
+            changeDirection({ x: 0, y: 1 })
           }
         >
           ▼
@@ -790,13 +593,10 @@ function App() {
 
       </section>
 
-      {/* DESKTOP CONTROLS */}
-
       <section className="controls">
 
         <div className="control-info">
           <span>🎮</span>
-
           <p>
             <strong>MOVE</strong>
             <br />
@@ -806,7 +606,6 @@ function App() {
 
         <div className="control-info">
           <span>⏸️</span>
-
           <p>
             <strong>PAUSE</strong>
             <br />
@@ -816,7 +615,6 @@ function App() {
 
         <div className="control-info">
           <span>🔄</span>
-
           <p>
             <strong>RESTART</strong>
             <br />
@@ -827,7 +625,11 @@ function App() {
       </section>
 
       <footer>
-        NEON ARCADE • NEON SNAKE
+        <span>NEON ARCADE</span>
+        <span>•</span>
+        <span>NEON SNAKE</span>
+        <span>•</span>
+        <span>v1.0</span>
       </footer>
 
     </main>
