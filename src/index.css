@@ -53,13 +53,11 @@ button:focus-visible {
   color: #ffffff;
 }
 
-/* Prevent accidental horizontal scrolling */
 html,
 body {
   overflow-x: hidden;
 }
 
-/* Better mobile game experience */
 @media (max-width: 700px) {
   body {
     overscroll-behavior: none;
