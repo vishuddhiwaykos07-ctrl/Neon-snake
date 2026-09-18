@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
 const BOARD_SIZE = 20
+
 const START_SNAKE = [
   { x: 10, y: 10 },
   { x: 9, y: 10 },
@@ -23,7 +24,7 @@ const POWER_UPS = {
 const getSavedData = (key, fallback) => {
   try {
     const saved = localStorage.getItem(key)
-    return saved ? JSON.parse(saved) : fallback
+    return saved !== null ? JSON.parse(saved) : fallback
   } catch {
     return fallback
   }
@@ -242,12 +243,14 @@ function App() {
     setSnake(newSnake)
     setFood(createFood(newSnake))
     setPowerUp(null)
+
     setDirection({ x: 1, y: 0 })
     nextDirection.current = { x: 1, y: 0 }
 
     setScore(0)
     setLevel(1)
     setCombo(0)
+
     setActivePowerUp(null)
     setPowerUpTime(0)
 
@@ -426,7 +429,6 @@ function App() {
 
           setScore(newScore)
           setTotalFood((value) => value + 1)
-
           setCombo(newCombo)
 
           if (newCombo > bestCombo) {
@@ -544,6 +546,23 @@ function App() {
     return 'cell'
   }
 
+  const touchDirection = (event, move) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (!gameStarted) {
+      startGame()
+      return
+    }
+
+    if (gameOver) {
+      resetGame()
+      return
+    }
+
+    changeDirection(move)
+  }
+
   const achievementList = [
     ['score100', '💯 Century', 'Reach 100 points'],
     ['score250', '👑 Neon Legend', 'Reach 250 points'],
@@ -562,13 +581,17 @@ function App() {
 
       <header className="header">
         <div>
-          <div className="eyebrow">NEON ARCADE // SYSTEM ONLINE</div>
+          <div className="eyebrow">
+            NEON ARCADE // SYSTEM ONLINE
+          </div>
+
           <h1>
             NEON <span>SNAKE</span>
           </h1>
         </div>
 
         <button
+          type="button"
           className="sound-button"
           onClick={() => setSoundOn((value) => !value)}
         >
@@ -623,48 +646,51 @@ function App() {
         <div className="game-area">
           <div className="board-frame">
             <div className="board">
-              {Array.from({ length: BOARD_SIZE * BOARD_SIZE }).map(
-                (_, index) => {
-                  const x = index % BOARD_SIZE
-                  const y = Math.floor(index / BOARD_SIZE)
+              {Array.from({
+                length: BOARD_SIZE * BOARD_SIZE,
+              }).map((_, index) => {
+                const x = index % BOARD_SIZE
+                const y = Math.floor(index / BOARD_SIZE)
 
-                  return (
-                    <div
-                      key={index}
-                      className={getCellClass(x, y)}
-                    >
-                      {snake[0]?.x === x &&
-                        snake[0]?.y === y && (
-                          <span className="eye">◆</span>
-                        )}
+                return (
+                  <div
+                    key={index}
+                    className={getCellClass(x, y)}
+                  >
+                    {snake[0]?.x === x &&
+                      snake[0]?.y === y && (
+                        <span className="eye">◆</span>
+                      )}
 
-                      {food.x === x &&
-                        food.y === y && (
-                          <span className="food-symbol">
-                            {FOOD_TYPES[food.type].symbol}
-                          </span>
-                        )}
+                    {food.x === x &&
+                      food.y === y && (
+                        <span className="food-symbol">
+                          {FOOD_TYPES[food.type].symbol}
+                        </span>
+                      )}
 
-                      {powerUp &&
-                        powerUp.x === x &&
-                        powerUp.y === y && (
-                          <span className="power-symbol">
-                            {POWER_UPS[powerUp.type].symbol}
-                          </span>
-                        )}
-                    </div>
-                  )
-                }
-              )}
+                    {powerUp &&
+                      powerUp.x === x &&
+                      powerUp.y === y && (
+                        <span className="power-symbol">
+                          {POWER_UPS[powerUp.type].symbol}
+                        </span>
+                      )}
+                  </div>
+                )
+              })}
 
               {!gameStarted && (
                 <div className="overlay">
                   <div className="overlay-content">
                     <div className="big-icon">🐍</div>
+
                     <h2>NEON SNAKE</h2>
+
                     <p>ENTER THE GRID</p>
 
                     <button
+                      type="button"
                       className="primary-button"
                       onClick={startGame}
                     >
@@ -678,10 +704,13 @@ function App() {
                 <div className="overlay">
                   <div className="overlay-content">
                     <div className="big-icon">⏸️</div>
+
                     <h2>PAUSED</h2>
+
                     <p>PRESS SPACE TO CONTINUE</p>
 
                     <button
+                      type="button"
                       className="primary-button"
                       onClick={() => setPaused(false)}
                     >
@@ -695,7 +724,9 @@ function App() {
                 <div className="overlay">
                   <div className="overlay-content">
                     <div className="big-icon">💥</div>
+
                     <h2>GAME OVER</h2>
+
                     <p>FINAL SCORE</p>
 
                     <div className="final-score">
@@ -709,6 +740,7 @@ function App() {
                     )}
 
                     <button
+                      type="button"
                       className="primary-button"
                       onClick={resetGame}
                     >
@@ -730,6 +762,7 @@ function App() {
         <section className="info-panel">
           <div>
             <span>FOOD</span>
+
             <div className="legend">
               <span>● 10</span>
               <span>◆ 25</span>
@@ -739,6 +772,7 @@ function App() {
 
           <div>
             <span>POWER</span>
+
             <div className="legend">
               <span>🛡️ Shield</span>
               <span>⏱️ Slow</span>
@@ -748,33 +782,54 @@ function App() {
         </section>
 
         <section className="controls-section">
-          <h3>CONTROLS</h3>
+          <h3>TOUCH CONTROLS</h3>
 
-          <div className="keyboard">
-            <button onClick={() => changeDirection({ x: 0, y: -1 })}>
+          <div className="mobile-controller">
+            <button
+              type="button"
+              className="control-up"
+              onPointerDown={(event) =>
+                touchDirection(event, { x: 0, y: -1 })
+              }
+              onTouchStart={(event) =>
+                touchDirection(event, { x: 0, y: -1 })
+              }
+            >
               ▲
             </button>
 
-            <div>
+            <div className="control-middle">
               <button
-                onClick={() =>
-                  changeDirection({ x: -1, y: 0 })
+                type="button"
+                onPointerDown={(event) =>
+                  touchDirection(event, { x: -1, y: 0 })
+                }
+                onTouchStart={(event) =>
+                  touchDirection(event, { x: -1, y: 0 })
                 }
               >
                 ◀
               </button>
 
               <button
-                onClick={() =>
-                  changeDirection({ x: 0, y: 1 })
+                type="button"
+                onPointerDown={(event) =>
+                  touchDirection(event, { x: 0, y: 1 })
+                }
+                onTouchStart={(event) =>
+                  touchDirection(event, { x: 0, y: 1 })
                 }
               >
                 ▼
               </button>
 
               <button
-                onClick={() =>
-                  changeDirection({ x: 1, y: 0 })
+                type="button"
+                onPointerDown={(event) =>
+                  touchDirection(event, { x: 1, y: 0 })
+                }
+                onTouchStart={(event) =>
+                  touchDirection(event, { x: 1, y: 0 })
                 }
               >
                 ▶
@@ -782,7 +837,13 @@ function App() {
             </div>
           </div>
 
-          <p>WASD / ARROW KEYS • SPACE = PAUSE • R = RESTART</p>
+          <p className="desktop-controls">
+            DESKTOP: WASD / ARROW KEYS • SPACE = PAUSE • R = RESTART
+          </p>
+
+          <p className="mobile-controls">
+            📱 TAP THE ARROWS TO MOVE
+          </p>
         </section>
 
         <section className="stats-section">
@@ -819,33 +880,36 @@ function App() {
         <section className="achievements-section">
           <div className="section-title">
             <span>ACHIEVEMENTS</span>
+
             <small>
               {achievements.length}/{achievementList.length} UNLOCKED
             </small>
           </div>
 
           <div className="achievement-grid">
-            {achievementList.map(([id, title, description]) => {
-              const unlocked = achievements.includes(id)
+            {achievementList.map(
+              ([id, title, description]) => {
+                const unlocked = achievements.includes(id)
 
-              return (
-                <div
-                  className={`achievement ${
-                    unlocked ? 'unlocked' : ''
-                  }`}
-                  key={id}
-                >
-                  <div className="achievement-icon">
-                    {unlocked ? '🏆' : '🔒'}
-                  </div>
+                return (
+                  <div
+                    className={`achievement ${
+                      unlocked ? 'unlocked' : ''
+                    }`}
+                    key={id}
+                  >
+                    <div className="achievement-icon">
+                      {unlocked ? '🏆' : '🔒'}
+                    </div>
 
-                  <div>
-                    <strong>{title}</strong>
-                    <p>{description}</p>
+                    <div>
+                      <strong>{title}</strong>
+                      <p>{description}</p>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              }
+            )}
           </div>
         </section>
       </main>
